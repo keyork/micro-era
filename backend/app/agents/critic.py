@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 from app.llm.client import call_llm
 
@@ -55,8 +55,9 @@ CRITIC_USER_TEMPLATE = """## 上下文
 
 
 class CriticAgent:
-    def __init__(self, client: AsyncAnthropic):
+    def __init__(self, client: AsyncOpenAI, model: str):
         self.client = client
+        self.model = model
 
     async def evaluate(
         self,
@@ -71,7 +72,7 @@ class CriticAgent:
             channel_description=channel_description or "未指定",
             ideas_json=json.dumps(ideas_payload, ensure_ascii=False),
         )
-        scores_list: list[dict[str, Any]] = await call_llm(self.client, CRITIC_SYSTEM_PROMPT, user)
+        scores_list: list[dict[str, Any]] = await call_llm(self.client, self.model, CRITIC_SYSTEM_PROMPT, user)
 
         # Build a title → scores map for safe merging
         score_map: dict[str, dict] = {s["ideaTitle"]: s for s in scores_list}

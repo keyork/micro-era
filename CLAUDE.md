@@ -88,7 +88,7 @@ app/
     client.py        call_llm() — unified async LLM call with JSON strip + 1 retry
 ```
 
-Model: `claude-sonnet-4-20250514`. All prompts expect pure JSON output, no markdown fences.
+LLM client uses OpenAI-compatible Chat Completions API (`llm/client.py` → `make_client` + `call_llm`). Any provider with an OpenAI-compatible endpoint works by setting `LLM_BASE_URL` and `LLM_MODEL` in `.env`. All prompts expect pure JSON output, no markdown fences.
 
 ### Frontend structure
 
@@ -135,11 +135,18 @@ Node sizes: seed=70px, locked=80px, selected=60px, active=45px, dormant=30px (op
 
 **`/backend/.env`**
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-xxx
+LLM_BASE_URL=             # leave empty for OpenAI; set for Moonshot, DeepSeek, etc.
+LLM_MODEL=gpt-4o-mini     # model name for the chosen provider
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/microera
 REDIS_URL=redis://localhost:6379
 CORS_ORIGINS=http://localhost:3000
 ```
+
+Provider examples:
+- **OpenAI**: `LLM_BASE_URL=` (empty), `LLM_MODEL=gpt-4o`
+- **Moonshot**: `LLM_BASE_URL=https://api.moonshot.cn/v1`, `LLM_MODEL=moonshot-v1-8k`
+- **DeepSeek**: `LLM_BASE_URL=https://api.deepseek.com/v1`, `LLM_MODEL=deepseek-chat`
 
 **`/frontend/.env.local`**
 ```

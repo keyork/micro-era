@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 from app.llm.client import call_llm
 
@@ -36,8 +36,9 @@ BRIEF_USER_TEMPLATE = """## 会话上下文
 
 
 class BriefAgent:
-    def __init__(self, client: AsyncAnthropic):
+    def __init__(self, client: AsyncOpenAI, model: str):
         self.client = client
+        self.model = model
 
     async def generate(
         self,
@@ -60,7 +61,7 @@ class BriefAgent:
             why_promising=locked_node.get("why_promising") or "",
             evolution_path_summary=path_summary,
         )
-        raw: dict = await call_llm(self.client, BRIEF_SYSTEM_PROMPT, user)
+        raw: dict = await call_llm(self.client, self.model, BRIEF_SYSTEM_PROMPT, user)
         evolution_path_ids = [uuid.UUID(str(n["id"])) for n in evolution_path_nodes]
         return {
             "id": uuid.uuid4(),

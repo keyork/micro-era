@@ -1,7 +1,7 @@
 import random
 import uuid
 
-from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 from app.agents.brief import BriefAgent
 from app.agents.critic import CriticAgent
@@ -10,12 +10,12 @@ from app.agents.mutation import MutationAgent
 
 
 class EvolutionEngine:
-    def __init__(self, llm_client: AsyncAnthropic):
+    def __init__(self, llm_client: AsyncOpenAI, model: str):
         self.client = llm_client
-        self.mutation_agent = MutationAgent(llm_client)
-        self.critic_agent = CriticAgent(llm_client)
-        self.hybrid_agent = HybridAgent(llm_client)
-        self.brief_agent = BriefAgent(llm_client)
+        self.mutation_agent = MutationAgent(llm_client, model)
+        self.critic_agent = CriticAgent(llm_client, model)
+        self.hybrid_agent = HybridAgent(llm_client, model)
+        self.brief_agent = BriefAgent(llm_client, model)
 
     def make_seed_node(self, session_id: str, user_id: str, seed_input: str) -> dict:
         return {

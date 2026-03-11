@@ -1,6 +1,6 @@
 """
 Unit tests for Agent JSON output format.
-These tests require a real ANTHROPIC_API_KEY and hit the live API.
+These tests require a real OPENAI_API_KEY and hit the live API.
 Skip in CI if the key is not set.
 """
 import os
@@ -9,19 +9,28 @@ import uuid
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY", "").startswith("sk-ant-xxx"),
-    reason="ANTHROPIC_API_KEY not set",
+    not os.getenv("OPENAI_API_KEY"),
+    reason="OPENAI_API_KEY not set",
 )
+
+MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+
+
+def _client():
+    from app.llm.client import make_client
+    return make_client(
+        api_key=os.environ["OPENAI_API_KEY"],
+        base_url=os.getenv("LLM_BASE_URL", ""),
+    )
 
 
 @pytest.mark.asyncio
 async def test_llm_client_returns_parseable_json():
-    from anthropic import AsyncAnthropic
     from app.llm.client import call_llm
 
-    client = AsyncAnthropic()
     result = await call_llm(
-        client,
+        _client(),
+        MODEL,
         system='Output a JSON array with one object: {"ok": true}',
         user="go",
     )
@@ -31,10 +40,9 @@ async def test_llm_client_returns_parseable_json():
 
 @pytest.mark.asyncio
 async def test_mutation_agent_first_gen_format():
-    from anthropic import AsyncAnthropic
     from app.agents.mutation import MutationAgent
 
-    agent = MutationAgent(AsyncAnthropic())
+    agent = MutationAgent(_client(), MODEL)
     session_id = str(uuid.uuid4())
     user_id = str(uuid.uuid4())
     seed_id = str(uuid.uuid4())
@@ -56,10 +64,9 @@ async def test_mutation_agent_first_gen_format():
 
 @pytest.mark.asyncio
 async def test_critic_agent_scores_format():
-    from anthropic import AsyncAnthropic
     from app.agents.critic import CriticAgent
 
-    agent = CriticAgent(AsyncAnthropic())
+    agent = CriticAgent(_client(), MODEL)
     nodes = [
         {"id": uuid.uuid4(), "title": "AI 时代的职业焦虑：程序员的自我救赎", "description": "探讨AI对编程职业的冲击", "tags": ["AI", "职场"]},
     ]
@@ -70,10 +77,9 @@ async def test_critic_agent_scores_format():
 
 @pytest.mark.asyncio
 async def test_hybrid_agent_format():
-    from anthropic import AsyncAnthropic
     from app.agents.hybrid import HybridAgent
 
-    agent = HybridAgent(AsyncAnthropic())
+    agent = HybridAgent(_client(), MODEL)
     pa = {"id": uuid.uuid4(), "title": "AI焦虑", "description": "AI带来的职业焦虑", "tags": ["AI"]}
     pb = {"id": uuid.uuid4(), "title": "冥想治愈", "description": "用冥想对抗现代焦虑", "tags": ["心理"]}
 

@@ -91,8 +91,8 @@ async def ws_evolution(websocket: WebSocket, session_id: uuid.UUID):
 
 
 async def _run_big_bang(websocket: WebSocket, db: AsyncSession, session, session_id: uuid.UUID):
-    from anthropic import AsyncAnthropic
-    engine = EvolutionEngine(AsyncAnthropic(api_key=settings.anthropic_api_key))
+    from app.llm.client import make_client
+    engine = EvolutionEngine(make_client(settings.openai_api_key, settings.llm_base_url), settings.llm_model)
 
     nodes_data = await engine.big_bang(
         session_id=str(session_id),
@@ -114,8 +114,8 @@ async def _run_evolve(
     selected_ids: list[str],
     hybridize: bool,
 ):
-    from anthropic import AsyncAnthropic
-    engine = EvolutionEngine(AsyncAnthropic(api_key=settings.anthropic_api_key))
+    from app.llm.client import make_client
+    engine = EvolutionEngine(make_client(settings.openai_api_key, settings.llm_base_url), settings.llm_model)
 
     # Mark selected nodes
     for sid in selected_ids:

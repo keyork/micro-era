@@ -81,7 +81,7 @@ async def trigger_evolve(session_id: uuid.UUID, body: EvolveRequest, db: AsyncSe
 @router.post("/{session_id}/lock/{node_id}", response_model=IdeaBriefResponse)
 async def lock_idea(session_id: uuid.UUID, node_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     from app.config import settings
-    from anthropic import AsyncAnthropic
+    from app.llm.client import make_client
     from app.engine.evolution import EvolutionEngine
 
     session = await crud_sessions.get_session(db, session_id)
@@ -95,7 +95,7 @@ async def lock_idea(session_id: uuid.UUID, node_id: uuid.UUID, db: AsyncSession 
     all_nodes_orm = await crud_nodes.get_session_nodes(db, session_id)
     all_nodes = [_node_to_dict(n) for n in all_nodes_orm]
 
-    engine = EvolutionEngine(AsyncAnthropic(api_key=settings.anthropic_api_key))
+    engine = EvolutionEngine(make_client(settings.openai_api_key, settings.llm_base_url), settings.llm_model)
     brief_data = await engine.generate_brief(
         locked_node=_node_to_dict(node),
         session_id=str(session_id),

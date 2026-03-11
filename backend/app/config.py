@@ -3,7 +3,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+    llm_base_url: str = ""          # leave empty to use provider default (OpenAI)
+    llm_model: str = "gpt-4o-mini"  # override per provider, e.g. moonshot-v1-8k
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/microera"
     redis_url: str = "redis://localhost:6379"
     cors_origins: str = "http://localhost:3000"

@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 from app.llm.client import call_llm
 
@@ -85,8 +85,9 @@ def _raw_to_partial(raw: dict[str, Any], session_id: str, user_id: str, generati
 
 
 class MutationAgent:
-    def __init__(self, client: AsyncAnthropic):
+    def __init__(self, client: AsyncOpenAI, model: str):
         self.client = client
+        self.model = model
 
     async def generate_first_gen(
         self,
@@ -102,7 +103,7 @@ class MutationAgent:
             channel_description=channel_description or "未指定",
             seed_input=seed_input,
         )
-        raw_list = await call_llm(self.client, MUTATION_SYSTEM_PROMPT, user)
+        raw_list = await call_llm(self.client, self.model, MUTATION_SYSTEM_PROMPT, user)
         return [_raw_to_partial(r, session_id, user_id, 1, [seed_node_id]) for r in raw_list[:4]]
 
     async def generate(
@@ -125,7 +126,7 @@ class MutationAgent:
             parent_tags=", ".join(parent.get("tags", [])),
             strategies="、".join(strategies),
         )
-        raw_list = await call_llm(self.client, MUTATION_SYSTEM_PROMPT, user)
+        raw_list = await call_llm(self.client, self.model, MUTATION_SYSTEM_PROMPT, user)
         parent_id = str(parent["id"])
         return [_raw_to_partial(r, session_id, user_id, generation, [parent_id]) for r in raw_list]
 
@@ -144,7 +145,7 @@ class MutationAgent:
             channel_description=channel_description or "未指定",
             seed_input=seed_input,
         )
-        raw_list = await call_llm(self.client, MUTATION_SYSTEM_PROMPT, user)
+        raw_list = await call_llm(self.client, self.model, MUTATION_SYSTEM_PROMPT, user)
         raw = raw_list[0]
         raw["mutationType"] = "random"
         return _raw_to_partial(raw, session_id, user_id, generation, [parent_id])
