@@ -1,0 +1,21 @@
+# Node
+node_modules/
+.next/
+frontend/.env.local
+frontend/.env*.local
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+backend/.venv/
+backend/.env
+*.egg-info/
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# Docker volumes (local only)
+*.log
