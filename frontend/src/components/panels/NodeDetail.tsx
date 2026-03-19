@@ -4,16 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { IdeaNode } from '@/types/idea';
 import { ScoreBar } from '@/components/ui/ScoreBar';
 import { MutationBadge } from '@/components/ui/MutationBadge';
-import { GlowButton } from '@/components/ui/GlowButton';
-import { useEvolution } from '@/hooks/useEvolution';
 
 interface Props {
   idea: IdeaNode;
   onClose: () => void;
-  sessionId?: string;
 }
 
-export function NodeDetail({ idea, onClose, sessionId }: Props) {
+export function NodeDetail({ idea, onClose }: Props) {
   return (
     <AnimatePresence>
       <motion.aside

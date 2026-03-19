@@ -18,6 +18,7 @@ export function useWebSocket({ sessionId, onEvent }: UseWebSocketOptions) {
   useEffect(() => {
     const ws = new WebSocket(`${WS_BASE}/ws/sessions/${sessionId}`);
     wsRef.current = ws;
+    let intentionallyClosed = false;
 
     ws.onmessage = (e) => {
       try {
@@ -28,9 +29,13 @@ export function useWebSocket({ sessionId, onEvent }: UseWebSocketOptions) {
       }
     };
 
-    ws.onerror = (e) => console.error('WebSocket error', e);
+    ws.onerror = (e) => {
+      if (!intentionallyClosed) console.error('WebSocket error', e);
+    };
 
     return () => {
+      intentionallyClosed = true;
+      wsRef.current = null;
       ws.close();
     };
   }, [sessionId]);

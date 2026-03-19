@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { IdeaNode, WSEvent } from '@/types/idea';
 
 export function useEvolution(sessionId: string) {
-  const { addNode, setEvolving, updateNodeStatus, setBrief, session } = useEvolutionStore();
+  const { addNode, setEvolving, updateNodeStatus, setBrief, clearSelection, session } = useEvolutionStore();
 
   const handleWSEvent = useCallback(
     (event: WSEvent) => {
@@ -25,6 +25,7 @@ export function useEvolution(sessionId: string) {
         }
         case 'evolution_complete':
           setEvolving(false);
+          clearSelection();
           break;
         case 'brief_generated':
           setBrief(event.brief);
@@ -35,7 +36,7 @@ export function useEvolution(sessionId: string) {
           break;
       }
     },
-    [addNode, setEvolving, setBrief],
+    [addNode, setEvolving, setBrief, clearSelection],
   );
 
   const triggerEvolve = useCallback(

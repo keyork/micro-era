@@ -29,25 +29,14 @@ npx tsc --noEmit   # type-check only
 ### Backend (`/backend`)
 
 ```bash
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
 uvicorn app.main:app --reload --port 8000   # dev server
 
-# DB migrations
-alembic upgrade head
-alembic revision --autogenerate -m "description"
-
-# Tests (requires live ANTHROPIC_API_KEY for agent tests)
+# Tests (requires live LLM API key for agent tests)
 pytest tests/
 pytest tests/test_agents.py -v   # single file
-```
-
-### Infrastructure (local)
-
-```bash
-docker compose up -d          # start PostgreSQL + Redis
-docker compose down           # stop
-docker compose down -v        # stop + wipe volumes
 ```
 
 ---
@@ -58,8 +47,7 @@ docker compose down -v        # stop + wipe volumes
 
 ```
 /frontend        Next.js 14 (App Router, TypeScript, Tailwind, React Flow, Framer Motion, Zustand)
-/backend         Python FastAPI (asyncpg, SQLAlchemy async, Alembic, Anthropic SDK, Celery/Redis)
-docker-compose.yml   local PostgreSQL:5432 + Redis:6379
+/backend         Python FastAPI (in-memory store, OpenAI-compatible SDK)
 AGENT.md         Full product + technical spec (source of truth)
 ```
 
@@ -69,10 +57,8 @@ AGENT.md         Full product + technical spec (source of truth)
 app/
   main.py            FastAPI app, CORS, router registration
   config.py          Pydantic Settings (reads .env)
-  database.py        Async SQLAlchemy engine + get_db() dependency
-  models/            SQLAlchemy ORM: User, EvolutionSession, IdeaNode, IdeaBrief
+  store.py           In-memory store: sessions, nodes, briefs dicts + helpers
   schemas/           Pydantic v2 request/response schemas
-  crud/              Async CRUD: sessions, idea_nodes, briefs
   routers/
     sessions.py      REST: POST /api/sessions, GET, POST /evolve, /lock, /revive
     ws.py            WebSocket: /ws/sessions/{sessionId} — streams node_emerging events
@@ -138,9 +124,6 @@ Node sizes: seed=70px, locked=80px, selected=60px, active=45px, dormant=30px (op
 OPENAI_API_KEY=sk-xxx
 LLM_BASE_URL=             # leave empty for OpenAI; set for Moonshot, DeepSeek, etc.
 LLM_MODEL=gpt-4o-mini     # model name for the chosen provider
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/microera
-REDIS_URL=redis://localhost:6379
-CORS_ORIGINS=http://localhost:3000
 ```
 
 Provider examples:
@@ -160,5 +143,5 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8000
 - 20% random mutation probability per round
 - JSON parse failure → retry once → fallback (handled in `llm/client.py`)
 - No 3D visualisation — React Flow 2D only
-- No LangChain — direct Anthropic SDK calls
+- No LangChain — direct OpenAI-compatible SDK calls
 - Demo user UUID `00000000-0000-0000-0000-000000000001` used until auth (Phase 7)

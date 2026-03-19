@@ -25,6 +25,7 @@ interface EvolutionStore {
   focusNode: (nodeId: string | null) => void;
   setEvolving: (v: boolean) => void;
   setBrief: (brief: IdeaBrief) => void;
+  clearSelection: () => void;
   reset: () => void;
 }
 
@@ -72,6 +73,8 @@ export const useEvolutionStore = create<EvolutionStore>((set) => ({
   focusNode: (nodeId) => set({ focusedNodeId: nodeId }),
 
   setEvolving: (v) => set({ isEvolving: v }),
+
+  clearSelection: () => set({ selectedNodeIds: [], focusedNodeId: null }),
 
   setBrief: (brief) => set({ brief }),
 

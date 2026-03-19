@@ -98,8 +98,12 @@ export function GalaxyCanvas({ sessionId }: Props) {
 
   const handleEvolve = useCallback(async () => {
     if (selectedNodeIds.length === 0) return;
-    const hybridize = selectedNodeIds.length === 2;
-    await triggerEvolve(send, selectedNodeIds, hybridize);
+    await triggerEvolve(send, selectedNodeIds, false);
+  }, [selectedNodeIds, triggerEvolve, send]);
+
+  const handleHybridize = useCallback(async () => {
+    if (selectedNodeIds.length !== 2) return;
+    await triggerEvolve(send, selectedNodeIds, true);
   }, [selectedNodeIds, triggerEvolve, send]);
 
   const handleLock = useCallback(async () => {
@@ -135,6 +139,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
       <ControlBar
         selectedCount={selectedNodeIds.length}
         onEvolve={handleEvolve}
+        onHybridize={handleHybridize}
         onLock={handleLock}
       />
       {focusedIdea && (

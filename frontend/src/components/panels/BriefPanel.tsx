@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { IdeaBrief } from '@/types/idea';
 import { GlowButton } from '@/components/ui/GlowButton';
 import { useEvolutionStore } from '@/stores/evolutionStore';
@@ -11,6 +12,7 @@ interface Props {
 
 export function BriefPanel({ brief }: Props) {
   const { reset } = useEvolutionStore();
+  const router = useRouter();
 
   return (
     <motion.div
@@ -92,7 +94,7 @@ export function BriefPanel({ brief }: Props) {
           <GlowButton variant="gold" className="flex-1" onClick={() => window.print()}>
             导出 Brief
           </GlowButton>
-          <GlowButton variant="ghost" className="flex-1" onClick={reset}>
+          <GlowButton variant="ghost" className="flex-1" onClick={() => { reset(); router.push('/'); }}>
             重新开始
           </GlowButton>
         </div>

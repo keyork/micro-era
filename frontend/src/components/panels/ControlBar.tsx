@@ -6,10 +6,11 @@ import { GlowButton } from '@/components/ui/GlowButton';
 interface Props {
   selectedCount: number;
   onEvolve: () => void;
+  onHybridize: () => void;
   onLock: () => void;
 }
 
-export function ControlBar({ selectedCount, onEvolve, onLock }: Props) {
+export function ControlBar({ selectedCount, onEvolve, onHybridize, onLock }: Props) {
   const { isEvolving } = useEvolutionStore();
 
   const canEvolve = selectedCount >= 1 && !isEvolving;
@@ -49,7 +50,7 @@ export function ControlBar({ selectedCount, onEvolve, onLock }: Props) {
             进化 →
           </GlowButton>
           <GlowButton
-            onClick={() => onEvolve()}
+            onClick={onHybridize}
             variant="ghost"
             style={{ borderColor: 'var(--color-teal)', color: 'var(--color-teal)' }}
           >
