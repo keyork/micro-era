@@ -2,6 +2,9 @@ export type MutationType = 'seed' | 'tweak' | 'crossover' | 'inversion' | 'rando
 export type NodeStatus = 'active' | 'selected' | 'dormant' | 'locked';
 export type SessionStatus = 'evolving' | 'completed' | 'abandoned';
 export type ContentType = 'video' | 'article' | 'podcast' | 'newsletter';
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
+export type PendingAction = 'bootstrap' | 'big_bang' | 'evolve' | 'hybridize' | 'lock' | 'revive' | null;
+export type ActivityTone = 'neutral' | 'accent' | 'success' | 'warning' | 'error';
 
 export interface IdeaNode {
   id: string;
@@ -47,6 +50,13 @@ export interface IdeaBrief {
   outlinePoints: string[];
   evolutionPath: string[];
   createdAt: string;
+}
+
+export interface ActivityMessage {
+  title: string;
+  detail: string;
+  tone: ActivityTone;
+  timestamp: number;
 }
 
 // WebSocket event types

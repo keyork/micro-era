@@ -1,24 +1,37 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { WSEvent } from '@/types/idea';
+import { ConnectionStatus, WSEvent } from '@/types/idea';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000';
 
 interface UseWebSocketOptions {
   sessionId: string;
   onEvent: (event: WSEvent) => void;
+  onStatusChange?: (status: ConnectionStatus) => void;
+  enabled?: boolean;
 }
 
-export function useWebSocket({ sessionId, onEvent }: UseWebSocketOptions) {
+export function useWebSocket({ sessionId, onEvent, onStatusChange, enabled = true }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const onEventRef = useRef(onEvent);
+  const onStatusChangeRef = useRef(onStatusChange);
   onEventRef.current = onEvent;
+  onStatusChangeRef.current = onStatusChange;
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    onStatusChangeRef.current?.('connecting');
     const ws = new WebSocket(`${WS_BASE}/ws/sessions/${sessionId}`);
     wsRef.current = ws;
     let intentionallyClosed = false;
+
+    ws.onopen = () => {
+      onStatusChangeRef.current?.('connected');
+    };
 
     ws.onmessage = (e) => {
       try {
@@ -30,7 +43,16 @@ export function useWebSocket({ sessionId, onEvent }: UseWebSocketOptions) {
     };
 
     ws.onerror = (e) => {
-      if (!intentionallyClosed) console.error('WebSocket error', e);
+      if (!intentionallyClosed) {
+        onStatusChangeRef.current?.('disconnected');
+        console.error('WebSocket error', e);
+      }
+    };
+
+    ws.onclose = () => {
+      if (!intentionallyClosed) {
+        onStatusChangeRef.current?.('disconnected');
+      }
     };
 
     return () => {
@@ -38,12 +60,14 @@ export function useWebSocket({ sessionId, onEvent }: UseWebSocketOptions) {
       wsRef.current = null;
       ws.close();
     };
-  }, [sessionId]);
+  }, [enabled, sessionId]);
 
   const send = useCallback((msg: object) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
+      return true;
     }
+    return false;
   }, []);
 
   return { send };

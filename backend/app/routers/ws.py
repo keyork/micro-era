@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+from contextlib import suppress
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -32,6 +33,7 @@ def _node_to_ws_payload(node: dict) -> dict:
             "feasibility": node.get("score_feasibility"),
         } if node.get("score_freshness") is not None else None,
         "brightness": node.get("brightness", 1.0),
+        "createdAt": node["created_at"].isoformat() if node.get("created_at") else None,
     }
 
 
@@ -67,8 +69,9 @@ async def ws_evolution(websocket: WebSocket, session_id: uuid.UUID):
         pass
     except Exception as exc:
         try:
-            await websocket.send_json({"type": "error", "message": str(exc)})
-            await websocket.close()
+            await websocket.send_json({"type": "error", "message": _public_error_message(exc)})
+            with suppress(Exception):
+                await websocket.close()
         except Exception:
             pass
 
@@ -132,3 +135,10 @@ async def _save_and_stream(
     session["updated_at"] = store.now()
 
     await websocket.send_json({"type": "evolution_complete", "generation": new_generation})
+
+
+def _public_error_message(exc: Exception) -> str:
+    message = str(exc).strip()
+    if message:
+        return message
+    return "Evolution failed due to an unexpected backend error."
