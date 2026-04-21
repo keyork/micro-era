@@ -18,92 +18,75 @@ Licensed under Apache 2.0.
 
 ## Commands
 
-### Frontend (`/frontend`)
-
 ```bash
 npm run dev        # dev server on :3000
 npm run build      # production build
 npx tsc --noEmit   # type-check only
 ```
 
-### Backend (`/backend`)
-
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-uvicorn app.main:app --reload --port 8000   # dev server
-
-# Tests (requires live LLM API key for agent tests)
-pytest tests/
-pytest tests/test_agents.py -v   # single file
-```
-
 ---
 
 ## Architecture
 
-### Monorepo layout
+### Pure frontend — no backend
 
-```
-/frontend        Next.js 14 (App Router, TypeScript, Tailwind, React Flow, Framer Motion, Zustand)
-/backend         Python FastAPI (in-memory store, OpenAI-compatible SDK)
-AGENT.md         Full product + technical spec (source of truth)
-```
+This is a **pure frontend application**. All logic runs in the browser:
+- LLM calls go directly from browser to OpenAI-compatible APIs using `fetch`
+- Sessions, nodes, and briefs are persisted in `localStorage`
+- No server, no WebSocket, no database required
 
-### Backend structure
-
-```
-app/
-  main.py            FastAPI app, CORS, router registration
-  config.py          Pydantic Settings (reads .env)
-  store.py           In-memory store: sessions, nodes, briefs dicts + helpers
-  schemas/           Pydantic v2 request/response schemas
-  routers/
-    sessions.py      REST: POST /api/sessions, GET, POST /evolve, /lock, /revive
-    ws.py            WebSocket: /ws/sessions/{sessionId} — streams node_emerging events
-    users.py         GET /api/users/me/sessions
-  engine/
-    evolution.py     EvolutionEngine — orchestrates big_bang() and evolve()
-  agents/
-    mutation.py      MutationAgent — generates variants (tweak/crossover/inversion/random)
-    critic.py        CriticAgent — scores freshness/resonance/feasibility
-    hybrid.py        HybridAgent — fuses two parent ideas
-    brief.py         BriefAgent — generates final structured Brief
-  llm/
-    client.py        call_llm() — unified async LLM call with JSON strip + 1 retry
-```
-
-LLM client uses OpenAI-compatible Chat Completions API (`llm/client.py` → `make_client` + `call_llm`). Any provider with an OpenAI-compatible endpoint works by setting `LLM_BASE_URL` and `LLM_MODEL` in `.env`. All prompts expect pure JSON output, no markdown fences.
-
-### Frontend structure
+### Project structure
 
 ```
 src/
   app/
-    page.tsx                   Landing + SeedInput
+    page.tsx                   Landing + SeedInput + SettingsPanel
     evolve/[sessionId]/page.tsx  Galaxy evolution UI
   components/
     galaxy/                    GalaxyCanvas, IdeaNodeComponent, EdgeComponent, GalaxyLayout
-    panels/                    SeedInput, NodeDetail, ControlBar, BriefPanel
+    panels/                    SeedInput, NodeDetail, ControlBar, BriefPanel, SettingsPanel
     ui/                        ScoreBar, MutationBadge, GlowButton
   stores/evolutionStore.ts     Zustand: nodes as Map<string, IdeaNode> for O(1) lookup
   hooks/
-    useWebSocket.ts            Manages WS connection to /ws/sessions/{id}
-    useEvolution.ts            Handles WSEvent dispatch + API calls (evolve, lock, revive)
+    useEvolution.ts            Orchestrates big_bang, evolve, lock, revive via EvolutionEngine
+    useLLMConfig.ts            Manages API key / base URL / model in localStorage
   lib/
-    api.ts                     REST client wrapping fetch
+    api.ts                     Local store facade (create/get sessions, nodes, etc.)
     galaxyLayout.ts            Radial layout: seed at (0,0), gen×150px rings
-  types/idea.ts                Canonical types (IdeaNode, EvolutionSession, IdeaBrief, WSEvent)
+    llm/client.ts              fetch-based OpenAI-compatible Chat Completions client
+    agents/
+      mutation.ts              MutationAgent — generates variants (tweak/crossover/inversion/random)
+      critic.ts                CriticAgent — scores freshness/resonance/feasibility
+      hybrid.ts                HybridAgent — fuses two parent ideas
+      brief.ts                 BriefAgent — generates final structured Brief
+    engine/
+      evolution.ts             EvolutionEngine — orchestrates big_bang() and evolve()
+    store/
+      localStore.ts            localStorage persistence for sessions, nodes, briefs
+  types/idea.ts                Canonical types (IdeaNode, EvolutionSession, IdeaBrief)
 ```
 
-### WebSocket flow
+### LLM configuration
 
-1. Frontend connects to `ws://HOST/ws/sessions/{sessionId}`
-2. Server auto-triggers `big_bang()` if `current_generation == 0`
-3. Nodes stream as `{ type: "node_emerging", node, delay }` — frontend staggers animation by `delay` ms
-4. Client sends `{ type: "start_evolution", selectedIds, hybridize }` for subsequent rounds
-5. Server replies with `evolution_complete` after all nodes are pushed
+Users configure their API key through the SettingsPanel on the home page. The config is stored in `localStorage` under key `llm_config`:
+
+```typescript
+{ apiKey: string; baseUrl: string; model: string }
+```
+
+Any OpenAI-compatible provider works:
+- **OpenAI**: leave baseUrl empty, model = `gpt-4o`
+- **Moonshot**: baseUrl = `https://api.moonshot.cn/v1`, model = `moonshot-v1-8k`
+- **DeepSeek**: baseUrl = `https://api.deepseek.com/v1`, model = `deepseek-chat`
+
+### Evolution flow
+
+1. User enters seed idea → session created in localStorage
+2. Navigate to evolve page → GalaxyCanvas bootstraps from localStorage
+3. If first generation: `useEvolution.runBigBang()` creates engine, calls LLM, streams nodes with 700ms delays
+4. User selects nodes → `useEvolution.runEvolve()` calls engine.evolve()
+5. User locks → `useEvolution.lockIdea()` calls engine.generateBrief()
+6. All data persisted to localStorage via `lib/store/localStore.ts`
 
 ### Visual design tokens (CSS vars in `globals.css`)
 
@@ -117,31 +100,10 @@ src/
 
 Node sizes: seed=70px, locked=80px, selected=60px, active=45px, dormant=30px (opacity 0.4).
 
-### Environment variables
-
-**`/backend/.env`**
-```
-OPENAI_API_KEY=sk-xxx
-LLM_BASE_URL=             # leave empty for OpenAI; set for Moonshot, DeepSeek, etc.
-LLM_MODEL=gpt-4o-mini     # model name for the chosen provider
-```
-
-Provider examples:
-- **OpenAI**: `LLM_BASE_URL=` (empty), `LLM_MODEL=gpt-4o`
-- **Moonshot**: `LLM_BASE_URL=https://api.moonshot.cn/v1`, `LLM_MODEL=moonshot-v1-8k`
-- **DeepSeek**: `LLM_BASE_URL=https://api.deepseek.com/v1`, `LLM_MODEL=deepseek-chat`
-
-**`/frontend/.env.local`**
-```
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
-```
-
 ### Key constraints from AGENT.md
 
 - Max 5 evolution rounds per session (~20 nodes) to prevent performance issues
 - 20% random mutation probability per round
-- JSON parse failure → retry once → fallback (handled in `llm/client.py`)
+- JSON parse failure → retry once → error (handled in `lib/llm/client.ts`)
 - No 3D visualisation — React Flow 2D only
-- No LangChain — direct OpenAI-compatible SDK calls
-- Demo user UUID `00000000-0000-0000-0000-000000000001` used until auth (Phase 7)
+- No LangChain — direct OpenAI-compatible API calls via fetch

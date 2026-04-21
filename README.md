@@ -8,7 +8,7 @@
 
 当前仓库实现的是第一阶段 MVP，重点验证以下事情：
 
-- 用户是否愿意从“想点子”切换到“进化点子”
+- 用户是否愿意从"想点子"切换到"进化点子"
 - 多轮候选生成 + 评分是否比单次生成更有价值
 - 可视化的节点演化界面是否能帮助用户做判断
 
@@ -21,128 +21,82 @@
 - 支持选中两个节点进行 hybridize（杂交）
 - 支持 revive 沉睡节点，重新回到探索流程
 - 锁定最终节点后生成结构化 Brief
-- 通过 WebSocket 逐个推送新节点，前端做渐进式展示
+- 新节点逐个出现（带动画延迟），前端做渐进式展示
 
-## 当前实现范围
+## 纯前端架构
 
-### 后端
+这是一个**纯前端应用**，不需要后端服务器：
 
-- `FastAPI` 提供 HTTP API 和 WebSocket 接口
-- `OpenAI-compatible` LLM 客户端
-- 四类 agent：
-  - `MutationAgent`：生成变异体
-  - `CriticAgent`：给候选打分
-  - `HybridAgent`：融合两个亲本节点
-  - `BriefAgent`：为最终节点生成 Brief
-- `EvolutionEngine` 负责串起整个演化流程
-- 使用内存存储会话、节点和 brief，不依赖数据库或 Redis
+- **LLM 调用**：浏览器直接调用 OpenAI 兼容的 Chat Completions API
+- **数据持久化**：所有会话、节点、Brief 保存在 `localStorage`
+- **演化引擎**：完全在浏览器中运行（Mutation → Critic → Hybrid → Brief Agent）
+- **API Key 管理**：用户在页面输入自己的 Key，存在浏览器本地
 
-### 前端
+支持的 LLM 提供商（任何 OpenAI 兼容接口）：
 
-- `Next.js` App Router
-- 首页输入种子想法、内容类型、频道方向
-- 演化页使用 `React Flow` 展示 idea galaxy
-- 支持选择、聚焦、进化、杂交、锁定、查看 Brief
-- 使用 `Zustand` 管理前端状态
-- 使用 `framer-motion` 做基础动效
+- **OpenAI**：留空 Base URL，model = `gpt-4o`
+- **Moonshot**：Base URL = `https://api.moonshot.cn/v1`，model = `moonshot-v1-8k`
+- **DeepSeek**：Base URL = `https://api.deepseek.com/v1`，model = `deepseek-chat`
+
+## 技术栈
+
+- **Next.js 14+** (App Router) — 框架
+- **TypeScript** — 语言
+- **Tailwind CSS** — 样式
+- **React Flow** — 星系节点图基础
+- **Framer Motion** — 动画
+- **Zustand** — 状态管理
 
 ## 项目结构
 
 ```text
 micro-era/
-├── backend/                # FastAPI 后端
-│   ├── app/
-│   │   ├── agents/         # mutation / critic / hybrid / brief
-│   │   ├── engine/         # 演化主流程
-│   │   ├── llm/            # OpenAI-compatible client
-│   │   ├── routers/        # HTTP / WebSocket 路由
-│   │   ├── schemas/        # Pydantic schema
-│   │   └── store.py        # 内存存储
-│   ├── tests/
-│   └── requirements.txt
-├── frontend/               # Next.js 前端
-│   ├── src/app/            # 页面入口
-│   ├── src/components/     # galaxy / panels / ui
-│   ├── src/hooks/          # REST / WebSocket 逻辑
-│   ├── src/lib/            # API 封装
-│   ├── src/stores/         # Zustand store
-│   └── src/types/          # 类型定义
-└── README.md
+└── src/
+    ├── app/
+    │   ├── page.tsx                    # 首页 + 种子输入 + 设置面板
+    │   └── evolve/[sessionId]/page.tsx # 演化主界面
+    ├── components/
+    │   ├── galaxy/                     # GalaxyCanvas, IdeaNode, Edge, Layout
+    │   ├── panels/                     # SeedInput, NodeDetail, ControlBar, BriefPanel, SettingsPanel
+    │   └── ui/                         # ScoreBar, MutationBadge, GlowButton
+    ├── stores/evolutionStore.ts        # Zustand store
+    ├── hooks/
+    │   ├── useEvolution.ts             # 演化流程编排（BigBang, Evolve, Lock, Revive）
+    │   └── useLLMConfig.ts             # API Key 配置管理
+    ├── lib/
+    │   ├── api.ts                      # 本地存储 API 封装
+    │   ├── galaxyLayout.ts             # 径向布局算法
+    │   ├── llm/client.ts               # fetch-based LLM 客户端
+    │   ├── agents/                     # Mutation, Critic, Hybrid, Brief
+    │   ├── engine/evolution.ts          # EvolutionEngine
+    │   └── store/localStore.ts          # localStorage 持久化
+    └── types/idea.ts                   # 类型定义
 ```
-
-## 运行环境
-
-建议环境：
-
-- Python 3.11+
-- Node.js 20+
-- npm 10+
-
-LLM 侧默认使用 OpenAI，也支持任何兼容 OpenAI API 的服务，只要提供兼容的 `base_url` 即可。
 
 ## 快速开始
 
-### 1. 启动后端
+### 前置要求
+
+- Node.js 20+
+- npm 10+
+- 一个 OpenAI 兼容的 API Key
+
+### 安装和启动
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-```
-
-编辑 `backend/.env`：
-
-```env
-OPENAI_API_KEY=sk-xxx
-LLM_BASE_URL=
-LLM_MODEL=gpt-4o-mini
-```
-
-说明：
-
-- `OPENAI_API_KEY`：必填
-- `LLM_BASE_URL`：可选；留空时走 OpenAI 官方地址，也可以配置 Moonshot、DeepSeek 等兼容接口
-- `LLM_MODEL`：默认是 `gpt-4o-mini`
-
-启动服务：
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-后端健康检查：
-
-```bash
-curl http://localhost:8000/health
-```
-
-### 2. 启动前端
-
-```bash
-cd frontend
 npm install
-```
-
-创建 `frontend/.env.local`：
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
-```
-
-启动开发环境：
-
-```bash
 npm run dev
 ```
 
-然后访问：
+然后访问 http://localhost:3000
 
-```text
-http://localhost:3000
-```
+### 配置 API Key
+
+1. 打开首页
+2. 在底部展开「API 设置」面板
+3. 输入你的 API Key
+4. 可选：填写 Base URL（用于非 OpenAI 提供商）和模型名称
+5. 密钥保存在浏览器本地，不会发送到任何服务器
 
 ## 使用流程
 
@@ -154,38 +108,34 @@ http://localhost:3000
 - 内容类型：视频 / 文章 / 播客 / Newsletter
 - 可选的频道方向描述
 
-提交后，前端会先创建 session，然后跳转到演化页面。
+提交后跳转到演化页面。
 
 ### 2. Big Bang
 
-演化页建立 WebSocket 连接后，如果当前 session 还没有生成过节点，后端会自动执行第一轮 Big Bang：
+进入演化页面后，如果当前会话还没有节点，系统会自动执行第一轮 Big Bang：
 
-- 创建 seed 节点
-- 生成第一代变异体
-- 调用 critic 对候选打分
-- 按顺序推送给前端展示
+- 创建种子节点
+- 生成第一代变异体（4 个方向）
+- Critic 评分
+- 节点逐个出现在画板上
 
 ### 3. 继续进化
 
-用户可以：
-
-- 选中 1 个节点，继续 evolve
-- 选中 2 个节点，进行 hybridize
-- 双击 dormant 节点，将其 revive 为 active
-
-后端每一轮最多返回一批新的候选节点，前端按流式事件逐步呈现。
+- 选中 1 个节点 → 点击「继续扩写」
+- 选中 2 个节点 → 点击「融合方向」
+- 双击灰色节点 → 复活淘汰方向
 
 ### 4. 锁定 Brief
 
-当用户决定某个节点方向成立后，可以执行 lock：
+当选定一个最终方向后：
 
-- 回溯该节点的演化路径
-- 基于路径和当前节点生成结构化 Brief
-- 将 session 标记为完成
+- 点击「锁定成 Brief」
+- 系统回溯演化路径并生成结构化 Brief
+- 包含核心角度、目标受众、内容大纲
 
 ## 演化机制
 
-当前版本内置的主要策略：
+内置的变异策略：
 
 - `tweak`：保持核心角度，微调切入点或表达方式
 - `crossover`：引入其他领域视角
@@ -193,62 +143,12 @@ http://localhost:3000
 - `random`：保留抽象主题联系，做大跨度跳跃
 - `hybrid`：融合两个已选节点
 
-第一轮会尽量铺开探索空间，后续轮次更偏向收敛。
+第一轮尽量铺开探索空间，后续轮次更偏向收敛。每轮有 20% 概率出现随机突变。
 
-## API 概览
-
-### HTTP
-
-- `GET /health`
-- `POST /api/sessions`
-- `GET /api/sessions/{session_id}`
-- `GET /api/sessions/{session_id}/nodes`
-- `POST /api/sessions/{session_id}/evolve`
-- `POST /api/sessions/{session_id}/lock/{node_id}`
-- `POST /api/sessions/{session_id}/revive/{node_id}`
-- `GET /api/users/me/sessions`
-
-### WebSocket
-
-- `WS /ws/sessions/{session_id}`
-
-主要事件：
-
-- `node_emerging`
-- `evolution_complete`
-- `error`
-
-## 测试
-
-后端目前有一组偏 smoke test / contract test 的 agent 测试，用来确认 LLM 返回的 JSON 结构可解析。
-
-运行方式：
+## 开发命令
 
 ```bash
-cd backend
-source .venv/bin/activate
-pytest -q
+npm run dev        # 开发服务器 :3000
+npm run build      # 生产构建
+npx tsc --noEmit   # 类型检查
 ```
-
-注意：
-
-- 这些测试依赖真实的 `OPENAI_API_KEY`
-- 没有 key 时会自动跳过
-- 当前测试更关注输出结构，不是完整业务覆盖
-
-## 当前限制
-
-- 使用内存存储，服务重启后数据会丢失
-- 没有用户系统，当前使用固定 demo user
-- 没有持久化队列和后台任务系统
-- 没有细粒度鉴权和多租户隔离
-- 前端和后端都还处于 MVP 阶段，接口和数据结构仍可能调整
-
-## 适合继续补强的方向
-
-- 接入数据库和持久化存储
-- 为 session / node / brief 增加更完整的查询能力
-- 增加更稳定的测试覆盖，而不是只测 LLM 输出格式
-- 为不同内容类型设计更细的评分标准
-- 支持演化历史回放、导出、分享
-- 增加更精细的前端状态与错误处理
