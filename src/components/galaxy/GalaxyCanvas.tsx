@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -40,6 +40,8 @@ const bootstrappingSessions = new Set<string>();
 
 export function GalaxyCanvas({ sessionId }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const shouldOpenBrief = searchParams.get('brief') === '1';
   const ideaNodes = useEvolutionStore((state) => state.nodes);
   const selectedNodeIds = useEvolutionStore((state) => state.selectedNodeIds);
   const focusedNodeId = useEvolutionStore((state) => state.focusedNodeId);
@@ -96,7 +98,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
         setSession(sessionData);
         const nodes = api.getSessionNodes(sessionId);
         setNodes(nodes);
-        setBrief(api.getBrief(sessionId));
+        setBrief(shouldOpenBrief ? api.getBrief(sessionId) : null);
 
         if (sessionData.currentGeneration === 0 && nodes.length === 0) {
           if (!isConfigured) {
@@ -145,7 +147,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
 
     void bootstrap();
     return () => { cancelled = true; };
-  }, [isLoaded, reset, sessionId, setActivity, setBrief, setErrorMessage, setNodes, setPendingAction, setSession, isConfigured, runBigBang]);
+  }, [isLoaded, reset, sessionId, setActivity, setBrief, setErrorMessage, setNodes, setPendingAction, setSession, shouldOpenBrief, isConfigured, runBigBang]);
 
   const nodes = useMemo(() => Array.from(ideaNodes.values()), [ideaNodes]);
   const currentGeneration = useMemo(

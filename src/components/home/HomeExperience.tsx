@@ -463,8 +463,22 @@ function RecentSessions() {
                     color: 'var(--color-teal)',
                   }}
                 >
-	                  {hasBrief ? '查看 Brief' : '继续'}
+                  继续
                 </button>
+                {hasBrief && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/evolve/${session.id}?brief=1`)}
+                    className="rounded-full px-3 py-1.5 text-xs font-semibold"
+                    style={{
+                      background: 'rgba(245,204,114,0.10)',
+                      border: '1px solid rgba(245,204,114,0.18)',
+                      color: 'var(--color-gold)',
+                    }}
+                  >
+                    查看 Brief
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {

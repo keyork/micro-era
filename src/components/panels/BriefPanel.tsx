@@ -67,6 +67,7 @@ function downloadMarkdown(filename: string, markdown: string): void {
 
 export function BriefPanel({ brief }: Props) {
   const reset = useEvolutionStore((state) => state.reset);
+  const setBrief = useEvolutionStore((state) => state.setBrief);
   const nodes = useEvolutionStore((state) => state.nodes);
   const router = useRouter();
 
@@ -215,6 +216,9 @@ export function BriefPanel({ brief }: Props) {
           <div className="flex gap-3 pt-2">
             <GlowButton variant="gold" className="flex-1" onClick={handleExportMarkdown}>
               导出 Markdown
+            </GlowButton>
+            <GlowButton variant="ghost" className="flex-1" onClick={() => setBrief(null)}>
+              回到画板
             </GlowButton>
             <GlowButton
               variant="ghost"
