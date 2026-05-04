@@ -325,7 +325,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
         ))}
       </div>
 
-      <div className="absolute left-4 top-4 z-20">
+      <div className="absolute left-4 top-4 z-40">
         <button
           type="button"
           onClick={() => router.push('/')}

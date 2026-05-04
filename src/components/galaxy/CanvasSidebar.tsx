@@ -61,7 +61,10 @@ export function CanvasSidebar({
   activityLog,
 }: Props) {
   return (
-    <aside className="absolute left-4 top-4 z-20 hidden w-[340px] space-y-4 xl:block">
+    <aside
+      className="absolute left-4 top-20 z-20 hidden max-h-[calc(100vh-6rem)] w-[340px] space-y-4 overflow-y-auto pr-2 xl:block"
+      data-home-scrollable="true"
+    >
       <section
         className="glass-panel glass-panel--hover rounded-[28px] p-5"
       >
