@@ -31,7 +31,7 @@ export class EvolutionEngine {
       parentIds: [],
       generation: 0,
       mutationType: 'seed',
-      status: 'selected',
+      status: 'active',
       brightness: 1.0,
       createdAt: new Date().toISOString(),
     };

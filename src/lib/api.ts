@@ -39,6 +39,10 @@ export const api = {
     return localStore.getSessionNodes(id);
   },
 
+  getBrief: (sessionId: string): IdeaBrief | null => {
+    return localStore.getBrief(sessionId);
+  },
+
   evolve: (_id: string, _body: { selectedIds: string[]; hybridize?: boolean }): { generation: number } => {
     throw new Error('Use useEvolution.runEvolve() instead of api.evolve()');
   },

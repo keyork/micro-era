@@ -58,6 +58,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
   const setActivity = useEvolutionStore((state) => state.setActivity);
   const setPendingAction = useEvolutionStore((state) => state.setPendingAction);
   const setErrorMessage = useEvolutionStore((state) => state.setErrorMessage);
+  const setBrief = useEvolutionStore((state) => state.setBrief);
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
   const [draggedPositions, setDraggedPositions] = useState<Record<string, XYPosition>>({});
@@ -95,6 +96,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
         setSession(sessionData);
         const nodes = api.getSessionNodes(sessionId);
         setNodes(nodes);
+        setBrief(api.getBrief(sessionId));
 
         if (sessionData.currentGeneration === 0 && nodes.length === 0) {
           if (!isConfigured) {
@@ -143,7 +145,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
 
     void bootstrap();
     return () => { cancelled = true; };
-  }, [isLoaded, reset, sessionId, setActivity, setErrorMessage, setNodes, setPendingAction, setSession, isConfigured, runBigBang]);
+  }, [isLoaded, reset, sessionId, setActivity, setBrief, setErrorMessage, setNodes, setPendingAction, setSession, isConfigured, runBigBang]);
 
   const nodes = useMemo(() => Array.from(ideaNodes.values()), [ideaNodes]);
   const currentGeneration = useMemo(
@@ -152,11 +154,16 @@ export function GalaxyCanvas({ sessionId }: Props) {
   );
 
   useEffect(() => {
-    const displayNodes = nodes.map((node) =>
-      selectedNodeIds.includes(node.id) && node.status === 'active'
-        ? { ...node, status: 'selected' as const }
-        : node,
-    );
+    const displayNodes = nodes.map((node) => {
+      const isActuallySelected = selectedNodeIds.includes(node.id);
+      if (isActuallySelected && node.status === 'active') {
+        return { ...node, status: 'selected' as const };
+      }
+      if (!isActuallySelected && node.status === 'selected') {
+        return { ...node, status: 'active' as const };
+      }
+      return node;
+    });
     const computedPositions = computeLayout(displayNodes);
 
     const rfN: Node<IdeaNode>[] = displayNodes.map((n) => {

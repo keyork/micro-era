@@ -424,6 +424,7 @@ function RecentSessions() {
       <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
         {sessions.map((session) => {
           const nodes = api.getSessionNodes(session.id);
+          const hasBrief = Boolean(api.getBrief(session.id));
           const title = session.seedInput.trim() || '未命名项目';
           return (
             <div
@@ -446,7 +447,7 @@ function RecentSessions() {
                   <span>{contentTypeLabel(session.contentType)}</span>
                   <span>第 {session.currentGeneration} 代</span>
                   <span>{nodes.length || session.totalNodes} 节点</span>
-                  <span>{session.status === 'completed' ? '已完成' : '演化中'}</span>
+                  <span>{hasBrief ? '已生成 Brief' : session.status === 'completed' ? '已完成' : '演化中'}</span>
                   <span>{formatSessionTime(session.updatedAt || session.createdAt)}</span>
                 </div>
               </button>
@@ -462,7 +463,7 @@ function RecentSessions() {
                     color: 'var(--color-teal)',
                   }}
                 >
-                  继续
+	                  {hasBrief ? '查看 Brief' : '继续'}
                 </button>
                 <button
                   type="button"

@@ -32,7 +32,7 @@ interface EvolutionStore {
   setPendingAction: (action: PendingAction) => void;
   setActivity: (activity: Omit<ActivityMessage, 'id' | 'timestamp'> | null) => void;
   setErrorMessage: (message: string | null) => void;
-  setBrief: (brief: IdeaBrief) => void;
+  setBrief: (brief: IdeaBrief | null) => void;
   clearSelection: () => void;
   reset: () => void;
 }
