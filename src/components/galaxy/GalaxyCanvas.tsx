@@ -21,7 +21,7 @@ import { useEvolution } from '@/hooks/useEvolution';
 import { useLLMConfig } from '@/hooks/useLLMConfig';
 import { computeLayout } from './GalaxyLayout';
 import { MUTATION_COLORS } from './IdeaNodeComponent';
-import { IdeaNode } from '@/types/idea';
+import { IdeaBrief, IdeaNode } from '@/types/idea';
 import { ControlBar } from '@/components/panels/ControlBar';
 import { NodeDetail } from '@/components/panels/NodeDetail';
 import { BriefPanel } from '@/components/panels/BriefPanel';
@@ -64,6 +64,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
   const [draggedPositions, setDraggedPositions] = useState<Record<string, XYPosition>>({});
+  const [savedBrief, setSavedBrief] = useState<IdeaBrief | null>(null);
   const loadedSessionRef = useRef<string | null>(null);
 
   const { runBigBang, runEvolve, lockIdea, reviveNode } = useEvolution(sessionId);
@@ -79,6 +80,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
     let cancelled = false;
     reset();
     setDraggedPositions({});
+    setSavedBrief(null);
     setPendingAction(null);
     setErrorMessage(null);
     setActivity({
@@ -97,8 +99,10 @@ export function GalaxyCanvas({ sessionId }: Props) {
 
         setSession(sessionData);
         const nodes = api.getSessionNodes(sessionId);
+        const persistedBrief = api.getBrief(sessionId);
         setNodes(nodes);
-        setBrief(shouldOpenBrief ? api.getBrief(sessionId) : null);
+        setSavedBrief(persistedBrief);
+        setBrief(shouldOpenBrief ? persistedBrief : null);
 
         if (sessionData.currentGeneration === 0 && nodes.length === 0) {
           if (!isConfigured) {
@@ -264,6 +268,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
   }, [selectedNodeIds, lockIdea]);
 
   const focusedIdea = focusedNodeId ? ideaNodes.get(focusedNodeId) ?? null : null;
+  const availableBrief = savedBrief ?? brief;
   const topMetrics = [
     ['状态', isConfigured ? '就绪' : '未配置'],
     ['代数', String(currentGeneration)],
@@ -313,6 +318,26 @@ export function GalaxyCanvas({ sessionId }: Props) {
       />
 
       <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+        {availableBrief && !brief && (
+          <button
+            type="button"
+            onClick={() => {
+              const latestBrief = api.getBrief(sessionId) ?? availableBrief;
+              setSavedBrief(latestBrief);
+              setBrief(latestBrief);
+            }}
+            className="rounded-[16px] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] hud-text transition-all duration-300"
+            style={{
+              background: 'rgba(245,204,114,0.10)',
+              color: 'var(--color-gold)',
+              border: '1px solid rgba(245,204,114,0.20)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.36), inset 0 1px 0 rgba(245,204,114,0.08)',
+              backdropFilter: 'blur(20px)',
+            }}
+          >
+            查看 Brief
+          </button>
+        )}
         {topMetrics.map(([label, value]) => (
           <div
             key={label}

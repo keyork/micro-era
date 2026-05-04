@@ -218,7 +218,7 @@ export function BriefPanel({ brief }: Props) {
               导出 Markdown
             </GlowButton>
             <GlowButton variant="ghost" className="flex-1" onClick={() => setBrief(null)}>
-              回到画板
+              返回
             </GlowButton>
             <GlowButton
               variant="ghost"
