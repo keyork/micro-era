@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { HomeAsyncPanel } from './HomeAsyncPanel';
 import { useLLMConfig } from '@/hooks/useLLMConfig';
-import type { ContentType } from '@/types/idea';
+import { api } from '@/lib/api';
+import type { ContentType, EvolutionSession } from '@/types/idea';
 
 /* ─── Dynamic imports ─── */
 
@@ -359,6 +361,133 @@ function GearIcon() {
   );
 }
 
+function formatSessionTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function contentTypeLabel(value: ContentType): string {
+  const labels: Record<ContentType, string> = {
+    video: '视频',
+    article: '文章',
+    podcast: '播客',
+    newsletter: 'Newsletter',
+  };
+  return labels[value];
+}
+
+function RecentSessions() {
+  const router = useRouter();
+  const [sessions, setSessions] = useState<EvolutionSession[]>([]);
+
+  const refresh = useCallback(() => {
+    setSessions(api.getUserSessions().slice(0, 5));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    window.addEventListener('storage', refresh);
+    return () => window.removeEventListener('storage', refresh);
+  }, [refresh]);
+
+  if (sessions.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, delay: 0.95 }}
+      className="mt-2 w-full max-w-2xl rounded-[24px] p-3 text-left"
+      style={{
+        background: 'rgba(3,5,14,0.66)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        boxShadow: '0 22px 80px rgba(0,0,0,0.30), inset 0 1px 0 rgba(180,200,255,0.04)',
+        backdropFilter: 'blur(18px)',
+      }}
+      data-home-scrollable="true"
+    >
+      <div className="mb-2 flex items-center justify-between gap-3 px-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: 'var(--text-muted)' }}>
+          最近项目
+        </p>
+        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          {sessions.length} 个
+        </span>
+      </div>
+
+      <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
+        {sessions.map((session) => {
+          const nodes = api.getSessionNodes(session.id);
+          const title = session.seedInput.trim() || '未命名项目';
+          return (
+            <div
+              key={session.id}
+              className="group grid gap-2 rounded-[18px] px-3 py-3 transition-colors sm:grid-cols-[1fr_auto]"
+              style={{
+                background: 'rgba(255,255,255,0.028)',
+                border: '1px solid rgba(255,255,255,0.045)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => router.push(`/evolve/${session.id}`)}
+                className="min-w-0 text-left"
+              >
+                <p className="truncate text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {title}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                  <span>{contentTypeLabel(session.contentType)}</span>
+                  <span>第 {session.currentGeneration} 代</span>
+                  <span>{nodes.length || session.totalNodes} 节点</span>
+                  <span>{session.status === 'completed' ? '已完成' : '演化中'}</span>
+                  <span>{formatSessionTime(session.updatedAt || session.createdAt)}</span>
+                </div>
+              </button>
+
+              <div className="flex items-center gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => router.push(`/evolve/${session.id}`)}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold"
+                  style={{
+                    background: 'rgba(93,216,190,0.10)',
+                    border: '1px solid rgba(93,216,190,0.16)',
+                    color: 'var(--color-teal)',
+                  }}
+                >
+                  继续
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    api.deleteSession(session.id);
+                    refresh();
+                  }}
+                  className="rounded-full px-3 py-1.5 text-xs"
+                  style={{
+                    background: 'rgba(255,255,255,0.035)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 /* ─── Dot Indicators ─── */
 
 function DotIndicators({ current, total, onSelect }: { current: number; total: number; onSelect: (i: number) => void }) {
@@ -622,6 +751,8 @@ function SlideSeed({
             已有配置，填写想法
           </button>
         </motion.div>
+
+        <RecentSessions />
       </motion.div>
 
       {/* Wordmark */}

@@ -59,7 +59,11 @@ export const api = {
   getUserSessions: (): EvolutionSession[] => {
     const all = localStore.getAllSessions();
     return Object.values(all).sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
     );
+  },
+
+  deleteSession: (sessionId: string): void => {
+    localStore.deleteSession(sessionId);
   },
 };
