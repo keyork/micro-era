@@ -1,154 +1,235 @@
-# 微纪元 Micro Era
+# Micro Era
 
-> Stop brainstorming. Start evolving.
+Micro Era is a browser-only idea evolution workspace for content creators.
 
-微纪元是一个面向内容创作者的「选题进化」原型项目。
+Instead of asking an LLM for one finished idea, Micro Era treats a rough topic as a seed. It expands that seed into candidate directions, scores them, lets you select and combine branches, and eventually locks one direction into a structured content brief.
 
-它不把 LLM 当成一次性灵感生成器，而是把模糊想法当作一个种子，通过多轮变异、评分、杂交和锁定，逐步收敛成一个更可执行的选题 Brief。
+The current app is an MVP focused on the end-to-end workflow:
 
-当前仓库实现的是第一阶段 MVP，重点验证以下事情：
+1. Connect an OpenAI-compatible LLM.
+2. Enter a seed idea.
+3. Explore the generated idea galaxy.
+4. Evolve, hybridize, revive, and lock a final direction.
+5. Export the final brief as Markdown.
 
-- 用户是否愿意从"想点子"切换到"进化点子"
-- 多轮候选生成 + 评分是否比单次生成更有价值
-- 可视化的节点演化界面是否能帮助用户做判断
+## Features
 
-## 核心能力
+- Pure frontend app: no custom backend required.
+- Browser-side LLM calls through an OpenAI-compatible Chat Completions API.
+- Local persistence for sessions, idea nodes, and briefs using `localStorage`.
+- Guided home flow: connect model first, then write the seed idea.
+- First-generation idea expansion from a seed topic.
+- Critic scoring for freshness, resonance, and feasibility.
+- Interactive React Flow canvas for selecting, reviving, evolving, and hybridizing nodes.
+- Final brief generation with core angle, target audience, outline, and evolution path.
+- Markdown export for the locked brief.
 
-- 输入一个模糊的种子想法，创建演化会话
-- 基于种子自动生成第一代候选节点
-- 对候选节点进行评分，辅助选择
-- 支持继续进化单个节点
-- 支持选中两个节点进行 hybridize（杂交）
-- 支持 revive 沉睡节点，重新回到探索流程
-- 锁定最终节点后生成结构化 Brief
-- 新节点逐个出现（带动画延迟），前端做渐进式展示
+## Tech Stack
 
-## 纯前端架构
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- React Flow
+- Framer Motion
+- Zustand
 
-这是一个**纯前端应用**，不需要后端服务器：
-
-- **LLM 调用**：浏览器直接调用 OpenAI 兼容的 Chat Completions API
-- **数据持久化**：所有会话、节点、Brief 保存在 `localStorage`
-- **演化引擎**：完全在浏览器中运行（Mutation → Critic → Hybrid → Brief Agent）
-- **API Key 管理**：用户在页面输入自己的 Key，存在浏览器本地
-
-支持的 LLM 提供商（任何 OpenAI 兼容接口）：
-
-- **OpenAI**：留空 Base URL，model = `gpt-4o`
-- **Moonshot**：Base URL = `https://api.moonshot.cn/v1`，model = `moonshot-v1-8k`
-- **DeepSeek**：Base URL = `https://api.deepseek.com/v1`，model = `deepseek-chat`
-
-## 技术栈
-
-- **Next.js 14+** (App Router) — 框架
-- **TypeScript** — 语言
-- **Tailwind CSS** — 样式
-- **React Flow** — 星系节点图基础
-- **Framer Motion** — 动画
-- **Zustand** — 状态管理
-
-## 项目结构
-
-```text
-micro-era/
-└── src/
-    ├── app/
-    │   ├── page.tsx                    # 首页 + 种子输入 + 设置面板
-    │   └── evolve/[sessionId]/page.tsx # 演化主界面
-    ├── components/
-    │   ├── galaxy/                     # GalaxyCanvas, IdeaNode, Edge, Layout
-    │   ├── panels/                     # SeedInput, NodeDetail, ControlBar, BriefPanel, SettingsPanel
-    │   └── ui/                         # ScoreBar, MutationBadge, GlowButton
-    ├── stores/evolutionStore.ts        # Zustand store
-    ├── hooks/
-    │   ├── useEvolution.ts             # 演化流程编排（BigBang, Evolve, Lock, Revive）
-    │   └── useLLMConfig.ts             # API Key 配置管理
-    ├── lib/
-    │   ├── api.ts                      # 本地存储 API 封装
-    │   ├── galaxyLayout.ts             # 径向布局算法
-    │   ├── llm/client.ts               # fetch-based LLM 客户端
-    │   ├── agents/                     # Mutation, Critic, Hybrid, Brief
-    │   ├── engine/evolution.ts          # EvolutionEngine
-    │   └── store/localStore.ts          # localStorage 持久化
-    └── types/idea.ts                   # 类型定义
-```
-
-## 快速开始
-
-### 前置要求
+## Requirements
 
 - Node.js 20+
 - npm 10+
-- 一个 OpenAI 兼容的 API Key
+- An OpenAI-compatible API key
 
-### 安装和启动
+## Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-然后访问 http://localhost:3000
+Open http://localhost:3000.
 
-### 配置 API Key
+`npm run dev` intentionally uses webpack:
 
-1. 打开首页
-2. 在底部展开「API 设置」面板
-3. 输入你的 API Key
-4. 可选：填写 Base URL（用于非 OpenAI 提供商）和模型名称
-5. 密钥保存在浏览器本地，不会发送到任何服务器
+```json
+"dev": "next dev . --webpack"
+```
 
-## 使用流程
+This avoids a Turbopack dev CSS resolver issue where Tailwind can be resolved from the parent workspace directory instead of this project directory. Production builds still use the default Next.js build pipeline.
 
-### 1. 创建会话
+## LLM Configuration
 
-在首页输入：
+Micro Era calls the LLM directly from the browser. Your API key is stored only in your browser localStorage.
 
-- 一个模糊的种子想法
-- 内容类型：视频 / 文章 / 播客 / Newsletter
-- 可选的频道方向描述
+On the home screen:
 
-提交后跳转到演化页面。
+1. Go to the model configuration step.
+2. Enter an API key.
+3. Optionally enter a Base URL and model name.
+4. Use the connection test before creating a session.
 
-### 2. Big Bang
+Example providers:
 
-进入演化页面后，如果当前会话还没有节点，系统会自动执行第一轮 Big Bang：
+| Provider | Base URL | Model example |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` or leave blank | `gpt-4o-mini` |
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
+| Moonshot | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
 
-- 创建种子节点
-- 生成第一代变异体（4 个方向）
-- Critic 评分
-- 节点逐个出现在画板上
+The provider must support a browser-accessible OpenAI-compatible `/chat/completions` endpoint. Some providers may block browser calls with CORS rules.
 
-### 3. 继续进化
+## Usage Flow
 
-- 选中 1 个节点 → 点击「继续扩写」
-- 选中 2 个节点 → 点击「融合方向」
-- 双击灰色节点 → 复活淘汰方向
+### 1. Connect the model
 
-### 4. 锁定 Brief
+The app starts by asking for LLM configuration. This prevents creating a seed session that cannot run the first generation.
 
-当选定一个最终方向后：
+### 2. Write a seed idea
 
-- 点击「锁定成 Brief」
-- 系统回溯演化路径并生成结构化 Brief
-- 包含核心角度、目标受众、内容大纲
+Enter a rough topic, choose the target format, and optionally describe your channel or audience. The seed does not need to be polished; it should contain the tension or observation you want to explore.
 
-## 演化机制
+### 3. Generate the first galaxy
 
-内置的变异策略：
+After submitting the seed, the canvas opens and runs the first expansion:
 
-- `tweak`：保持核心角度，微调切入点或表达方式
-- `crossover`：引入其他领域视角
-- `inversion`：从相反立场重构命题
-- `random`：保留抽象主题联系，做大跨度跳跃
-- `hybrid`：融合两个已选节点
+- Creates the seed node.
+- Generates first-generation variants.
+- Scores those variants.
+- Places the nodes on the galaxy canvas.
 
-第一轮尽量铺开探索空间，后续轮次更偏向收敛。每轮有 20% 概率出现随机突变。
+### 4. Explore and evolve
 
-## 开发命令
+On the canvas:
+
+- Click an active node to select or deselect it.
+- Select one node and choose evolve to generate another generation.
+- Select two nodes and choose hybridize to combine directions.
+- Double-click a dormant node to revive it.
+- Lock one selected node to generate the final brief.
+
+### 5. Export the brief
+
+After locking an idea, Micro Era generates a brief and lets you export it as Markdown. The export includes:
+
+- Core angle
+- Target audience
+- Outline points
+- Evolution path
+
+## Evolution Model
+
+Micro Era uses four mutation strategies in the first generation:
+
+- `tweak`: keep the core angle and adjust the framing.
+- `crossover`: bring in a different domain or lens.
+- `inversion`: test the opposite premise.
+- `random`: make a larger jump while preserving abstract relevance.
+
+Later rounds can also use:
+
+- `hybrid`: combine two selected parent nodes.
+
+The critic agent scores candidates on:
+
+- Freshness
+- Resonance
+- Feasibility
+
+If the LLM returns malformed JSON, the client attempts repair. If repair still fails, the app falls back to structured placeholder output where possible instead of leaving the UI blank.
+
+## Project Structure
+
+```text
+src/
+  app/
+    page.tsx
+    evolve/[sessionId]/page.tsx
+    globals.css
+  components/
+    home/                 # guided home flow
+    galaxy/               # React Flow canvas, nodes, edges, layout visuals
+    panels/               # seed input, settings, controls, details, brief panel
+    ui/
+  hooks/
+    useEvolution.ts       # client-side evolution workflow
+    useLLMConfig.ts       # local LLM settings
+  lib/
+    agents/               # mutation, critic, hybrid, brief agents
+    engine/evolution.ts   # EvolutionEngine orchestration
+    llm/client.ts         # OpenAI-compatible fetch client
+    store/localStore.ts   # localStorage persistence
+    api.ts
+  stores/
+    evolutionStore.ts
+  types/
+    idea.ts
+```
+
+## Scripts
 
 ```bash
-npm run dev        # 开发服务器 :3000
-npm run build      # 生产构建
-npx tsc --noEmit   # 类型检查
+npm run dev      # Start local dev server with webpack
+npm run build    # Production build
+npm run start    # Serve the built app
 ```
+
+## Data and Privacy
+
+Micro Era has no custom backend in this repo.
+
+- API key: stored in browser `localStorage`.
+- Sessions: stored in browser `localStorage`.
+- Nodes and briefs: stored in browser `localStorage`.
+- LLM prompts and responses: sent directly between the browser and the configured provider.
+
+Do not use sensitive API keys on a shared or untrusted browser profile.
+
+## Known Constraints
+
+- Browser-side LLM calls depend on provider CORS support.
+- `localStorage` is convenient for the MVP but not suitable for multi-device sync.
+- Long or repeated sessions can increase localStorage size.
+- The canvas is optimized for moderate node counts, not thousands of nodes.
+- Development mode uses webpack because Turbopack dev currently resolves Tailwind incorrectly in this workspace layout.
+
+## Troubleshooting
+
+### Tailwind resolution error in dev
+
+If you see an error like:
+
+```text
+Can't resolve 'tailwindcss' in '/Users/.../work/ky'
+```
+
+make sure you are running:
+
+```bash
+npm run dev
+```
+
+and that the script still includes `--webpack`.
+
+### LLM connection fails
+
+Check:
+
+- API key is present.
+- Base URL has no trailing path mistakes.
+- Model name is supported by the provider.
+- Provider allows browser requests.
+- Network or CORS errors in the browser console.
+
+### Canvas opens but no nodes appear
+
+Check:
+
+- API key is configured.
+- First-generation LLM request succeeded.
+- localStorage is not full or blocked by the browser.
+
+If a session is corrupted, return home and create a new session.
+
+## License
+
+See [LICENSE](./LICENSE).
