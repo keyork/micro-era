@@ -15,16 +15,16 @@ function getGuide(selectedCount: number, focusedIdea: IdeaNode | null) {
     return {
       step: '重新比较',
       title: '这个方向已经被淘汰',
-      detail: '如果你又觉得它有意思，直接双击节点就能把它拉回候选池。',
-      hint: '复活后，再和当前保留的方向一起比较。',
+      detail: '如果又觉得有意思，双击节点就能拉回来。',
+      hint: '复活后和当前保留的方向再比较一次。',
     };
   }
 
   if (selectedCount === 0) {
     return {
       step: '第 1 步',
-      title: '先保留一个你最想继续看的方向',
-      detail: '不需要一次选很多。先点 1 个最有感觉的节点，系统就知道该往哪条线继续推。',
+      title: '先选一个最想继续的方向',
+      detail: '先点 1 个最有感觉的节点，后面的演化就知道该往哪推。',
       hint: '拿不准时，优先选"你愿意真的做出来"的那个。',
     };
   }
@@ -33,16 +33,16 @@ function getGuide(selectedCount: number, focusedIdea: IdeaNode | null) {
     return {
       step: '第 2 步',
       title: '现在可以继续扩写，或者直接锁定',
-      detail: '如果这个方向已经够明确，就锁定成 Brief；如果还想多看看，就先扩写一轮。',
-      hint: '判断标准很简单：你能不能立刻说出它的核心冲突和切入角度。',
+      detail: '够明确就锁定成 Brief。还想多看看就先扩写一轮。',
+      hint: '判断标准：你能不能立刻说出它的核心冲突和切入角度。',
     };
   }
 
   if (selectedCount === 2) {
     return {
       step: '第 2 步',
-      title: '这是最适合做交叉融合的时候',
-      detail: '当两个方向各有亮点，但单独看都不够完整时，就把它们混在一起试一次。',
+      title: '现在适合做交叉融合',
+      detail: '两个方向各有亮点但单独看不够完整时，混在一起试一次。',
       hint: '融合通常适合"一个有话题性，一个有情绪或人物张力"的组合。',
     };
   }
@@ -50,7 +50,7 @@ function getGuide(selectedCount: number, focusedIdea: IdeaNode | null) {
   return {
     step: '收窄选择',
     title: '先把候选收窄到 1-2 个',
-    detail: '选太多时，系统很难给你清晰反馈。先留下最想追的方向，画板会更容易判断。',
+    detail: '选太多时很难得到清晰反馈。先留下最想追的，画板会更清晰。',
     hint: '可以先取消那些"看起来不错，但你并不真想做"的节点。',
   };
 }
@@ -132,7 +132,7 @@ export function CanvasGuideCard({
 
       <div className="mt-4 rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.025)' }}>
         <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: 'var(--text-muted)' }}>
-          小建议
+          提示
         </p>
         <p className="text-sm leading-6" style={{ color: 'var(--text-secondary)' }}>
           {guide.hint}

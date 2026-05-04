@@ -1,4 +1,4 @@
-import { callLLM, type LLMConfig } from '../llm/client';
+import { LLMFormatError, callLLM, type LLMConfig } from '../llm/client';
 import type { IdeaNode, MutationType } from '@/types/idea';
 
 const MUTATION_SYSTEM_PROMPT = `你是微纪元的创意进化引擎。你的任务是基于给定的 idea 生成变异体。
@@ -69,6 +69,150 @@ interface RawMutation {
   mutationType?: string;
 }
 
+const FIRST_GEN_MUTATION_TYPES: MutationType[] = ['tweak', 'crossover', 'inversion', 'random'];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function truncate(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+}
+
+function normalizeMutationType(value: string | undefined, fallback: MutationType): MutationType {
+  switch (value) {
+    case 'tweak':
+    case 'crossover':
+    case 'inversion':
+    case 'random':
+    case 'hybrid':
+    case 'seed':
+      return value;
+    default:
+      return fallback;
+  }
+}
+
+function sanitizeTags(value: unknown, seedHint: string): string[] {
+  if (!Array.isArray(value)) {
+    return [truncate(seedHint, 10), '待细化'].filter(Boolean);
+  }
+
+  const tags = value
+    .map((entry) => asNonEmptyString(entry))
+    .filter((entry): entry is string => Boolean(entry))
+    .slice(0, 3);
+
+  return tags.length > 0 ? tags : [truncate(seedHint, 10), '待细化'].filter(Boolean);
+}
+
+function extractFallbackCandidates(rawContent: string, max: number): string[] {
+  const normalized = rawContent
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[•·]/g, '\n')
+    .replace(/\r/g, '')
+    .trim();
+
+  const chunks = normalized
+    .split(/[\n。！？!?]+/)
+    .map((entry) => entry.replace(/^[-*\d.\s:：]+/, '').trim())
+    .filter((entry) => entry.length >= 4);
+
+  return Array.from(new Set(chunks)).slice(0, max);
+}
+
+function buildFallbackMutation(
+  seedHint: string,
+  mutationType: MutationType,
+  candidate: string | undefined,
+): RawMutation {
+  const compactSeed = truncate(seedHint || '原始想法', 14);
+
+  const fallbackByType: Record<MutationType, { title: string; description: string; whyPromising: string }> = {
+    seed: {
+      title: truncate(compactSeed, 25),
+      description: '把原始想法先收束成一句可执行的话。',
+      whyPromising: '先把核心问题说清，后续更容易扩展。',
+    },
+    tweak: {
+      title: `${compactSeed}：先做最想做的切口`,
+      description: '优先保留一个你现在就愿意开始做的方向。',
+      whyPromising: '更容易真正落地，不会卡在无限分岔里。',
+    },
+    crossover: {
+      title: `${compactSeed}：借别的视角重讲`,
+      description: '把原主题和另一个领域的观察硬连接一次。',
+      whyPromising: '跨域连接能迅速拉开和常规表达的差距。',
+    },
+    inversion: {
+      title: `${compactSeed}：也许问题在反面`,
+      description: '不再证明原判断，而是先质疑它为什么可能错。',
+      whyPromising: '反向论证更容易逼出真正锋利的观点。',
+    },
+    random: {
+      title: `${compactSeed}：先做一个离谱版本`,
+      description: '保留最抽象的主题，只测试最意外的一跳。',
+      whyPromising: '随机扰动能打破当前思路的惯性。',
+    },
+    hybrid: {
+      title: `${compactSeed}：把两个方向压成一个`,
+      description: '抽取两个亲本里最强的一点，先得到一个可讨论的杂交体。',
+      whyPromising: '先合成一个最小版本，后续再慢慢分化。',
+    },
+  };
+
+  if (candidate) {
+    return {
+      title: truncate(candidate, 25),
+      description: fallbackByType[mutationType].description,
+      tags: [truncate(compactSeed, 10), mutationType, '待细化'],
+      whyPromising: fallbackByType[mutationType].whyPromising,
+      mutationType,
+    };
+  }
+
+  return {
+    ...fallbackByType[mutationType],
+    tags: [truncate(compactSeed, 10), mutationType, '待细化'],
+    mutationType,
+  };
+}
+
+function sanitizeMutationList(
+  raw: unknown,
+  seedHint: string,
+  mutationTypes: MutationType[],
+  rawFallbackContent?: string,
+): RawMutation[] {
+  const list = Array.isArray(raw) ? raw : [];
+  const fallbackCandidates = rawFallbackContent
+    ? extractFallbackCandidates(rawFallbackContent, mutationTypes.length)
+    : [];
+
+  return mutationTypes.map((mutationType, index) => {
+    const entry = list[index];
+    const fallback = buildFallbackMutation(seedHint, mutationType, fallbackCandidates[index]);
+
+    if (!isRecord(entry)) {
+      return fallback;
+    }
+
+    return {
+      title: asNonEmptyString(entry.title) ?? fallback.title,
+      description: asNonEmptyString(entry.description) ?? fallback.description,
+      tags: sanitizeTags(entry.tags, seedHint),
+      whyPromising: asNonEmptyString(entry.whyPromising) ?? fallback.whyPromising,
+      mutationType: normalizeMutationType(asNonEmptyString(entry.mutationType), mutationType),
+    };
+  });
+}
+
 function rawToNode(
   raw: RawMutation,
   sessionId: string,
@@ -108,11 +252,23 @@ export class MutationAgent {
       )
       .replace('{seed_input}', seedInput);
 
-    const rawList = (await callLLM(
-      this.config,
-      MUTATION_SYSTEM_PROMPT,
-      user,
-    )) as RawMutation[];
+    let raw: unknown;
+    let rawFallbackContent: string | undefined;
+    try {
+      raw = await callLLM(
+        this.config,
+        MUTATION_SYSTEM_PROMPT,
+        user,
+      );
+    } catch (error) {
+      if (!(error instanceof LLMFormatError)) {
+        throw error;
+      }
+      raw = [];
+      rawFallbackContent = error.rawContent;
+    }
+
+    const rawList = sanitizeMutationList(raw, seedInput, FIRST_GEN_MUTATION_TYPES, rawFallbackContent);
     return rawList
       .slice(0, 4)
       .map((r) => rawToNode(r, sessionId, 1, [seedNodeId]));
@@ -138,11 +294,24 @@ export class MutationAgent {
       .replace('{parent_tags}', parent.tags.join(', '))
       .replace('{strategies}', strategies.join('、'));
 
-    const rawList = (await callLLM(
-      this.config,
-      MUTATION_SYSTEM_PROMPT,
-      user,
-    )) as RawMutation[];
+    let raw: unknown;
+    let rawFallbackContent: string | undefined;
+    try {
+      raw = await callLLM(
+        this.config,
+        MUTATION_SYSTEM_PROMPT,
+        user,
+      );
+    } catch (error) {
+      if (!(error instanceof LLMFormatError)) {
+        throw error;
+      }
+      raw = [];
+      rawFallbackContent = error.rawContent;
+    }
+
+    const mutationTypes = strategies.map((strategy) => normalizeMutationType(strategy, 'tweak'));
+    const rawList = sanitizeMutationList(raw, parent.title || seedInput, mutationTypes, rawFallbackContent);
     return rawList.map((r) =>
       rawToNode(r, sessionId, generation, [parent.id]),
     );
@@ -163,14 +332,26 @@ export class MutationAgent {
       )
       .replace('{seed_input}', seedInput);
 
-    const rawList = (await callLLM(
-      this.config,
-      MUTATION_SYSTEM_PROMPT,
-      user,
-    )) as RawMutation[];
-    const raw = rawList[0];
+    let llmResult: unknown;
+    let rawFallbackContent: string | undefined;
+    try {
+      llmResult = await callLLM(
+        this.config,
+        MUTATION_SYSTEM_PROMPT,
+        user,
+      );
+    } catch (error) {
+      if (!(error instanceof LLMFormatError)) {
+        throw error;
+      }
+      llmResult = [];
+      rawFallbackContent = error.rawContent;
+    }
+
+    const rawList = sanitizeMutationList(llmResult, seedInput, ['random'], rawFallbackContent);
+    const rawMutation = rawList[0];
     return rawToNode(
-      { ...raw, mutationType: 'random' },
+      { ...rawMutation, mutationType: 'random' },
       sessionId,
       generation,
       [parentId],

@@ -5,178 +5,284 @@ import { Handle, Position, NodeProps } from 'reactflow';
 import { IdeaNode, MutationType } from '@/types/idea';
 
 export const MUTATION_COLORS: Record<MutationType, string> = {
-  seed: '#f0c86c',
-  tweak: '#7c6cf0',
-  crossover: '#6c9ff0',
+  seed:      '#f5cc72',
+  tweak:     '#8890ff',
+  crossover: '#7cacf0',
   inversion: '#f06c8c',
-  random: '#f06c8c',
-  hybrid: '#6cf0c8',
+  random:    '#f06c8c',
+  hybrid:    '#5dd8be',
 };
 
 const MUTATION_ICONS: Record<MutationType, string> = {
-  seed: '✦',
-  tweak: '◈',
+  seed:      '✦',
+  tweak:     '◈',
   crossover: '⊕',
   inversion: '↺',
-  random: '⚡',
-  hybrid: '⊗',
+  random:    '⚡',
+  hybrid:    '⊗',
 };
 
 const STATUS_SIZE: Record<string, number> = {
-  locked: 98,
-  selected: 80,
-  active: 62,
-  dormant: 44,
+  locked:   102,
+  selected:  96,
+  active:    58,
+  dormant:   44,
 };
 
-export const IdeaNodeComponent = memo(({ data }: NodeProps<IdeaNode>) => {
-  const color = MUTATION_COLORS[data.mutationType] ?? '#7c6cf0';
-  const icon = MUTATION_ICONS[data.mutationType] ?? '◈';
-  const isSeed = data.mutationType === 'seed';
-  const isDormant = data.status === 'dormant';
-  const isLocked = data.status === 'locked';
-  const isSelected = data.status === 'selected';
-  const isHybrid = data.mutationType === 'hybrid';
+const NODE_BOX_WIDTH = 244;
+const NODE_BOX_HEIGHT = 188;
+const NODE_CENTER_Y = 76;
 
-  const baseSize = STATUS_SIZE[data.status] ?? 62;
-  const size = isSeed ? Math.max(baseSize, 104) : baseSize;
-  const galaxyWidth = size * (isHybrid ? 1.6 : 1.48);
-  const galaxyHeight = size * (isHybrid ? 1.02 : 0.86);
-  const coreSize = size * (isLocked ? 0.34 : 0.3);
-  const haloOpacity = isDormant ? 0.18 : isSelected ? 0.42 : isLocked ? 0.4 : 0.28;
+export const IdeaNodeComponent = memo(({ data }: NodeProps<IdeaNode>) => {
+  const color = MUTATION_COLORS[data.mutationType] ?? '#8890ff';
+  const icon  = MUTATION_ICONS[data.mutationType] ?? '◈';
+  const isSeed    = data.mutationType === 'seed';
+  const isDormant = data.status === 'dormant';
+  const isLocked  = data.status === 'locked';
+  const isSelected = data.status === 'selected';
+  const isHybrid  = data.mutationType === 'hybrid';
+  const shouldAnimate = isSelected || isLocked;
+
+  const baseSize = STATUS_SIZE[data.status] ?? 64;
+  const size = isSeed ? Math.max(baseSize, 108) : baseSize;
+  const gW   = size * (isHybrid ? 1.62 : 1.5);
+  const gH   = size * (isHybrid ? 1.04 : 0.88);
+  const coreSize = size * (isLocked ? 0.35 : 0.31);
+
+  /* Animation speeds */
+  const orbitDur     = isSeed ? '34s' : isHybrid ? '26s' : '30s';
+  const breatheDur   = isSeed ? '5s'  : isSelected ? '3s' : '7s';
+  const haloPeak     = isDormant ? '0.12' : isSelected ? '0.72' : isLocked ? '0.52' : '0.32';
+  const haloBase     = isDormant ? '0.07' : isSelected ? '0.35' : isLocked ? '0.26' : '0.16';
 
   return (
     <div
-      style={{ width: Math.max(galaxyWidth + 64, 156), height: galaxyHeight + 78 }}
-      className="relative flex cursor-grab select-none items-start justify-center active:cursor-grabbing"
+      style={{ width: NODE_BOX_WIDTH, height: NODE_BOX_HEIGHT }}
+      className="relative cursor-grab select-none active:cursor-grabbing"
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
 
-      <div className="relative" style={{ width: galaxyWidth, height: galaxyHeight }}>
+      <div
+        className="absolute left-1/2"
+        style={{
+          top: NODE_CENTER_Y,
+          width: gW,
+          height: gH,
+          transform: 'translate(-50%, -50%)',
+        }}
+      >
+
+        {/* ── Outer halo (breathes) ── */}
         <div
-          className="absolute inset-0 rounded-full"
+          className="absolute"
           style={{
-            background: `radial-gradient(circle, ${color}55 0%, ${color}0e 56%, transparent 100%)`,
-            filter: 'blur(22px)',
-            opacity: haloOpacity,
-          }}
+            inset: -size * 0.18,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${color}44 0%, ${color}11 55%, transparent 100%)`,
+            filter: 'blur(26px)',
+            animation: shouldAnimate ? `halo-breathe ${breatheDur} ease-in-out infinite` : 'none',
+            '--h-base': haloBase,
+            '--h-peak': haloPeak,
+            opacity: parseFloat(haloBase),
+          } as React.CSSProperties}
         />
 
-        <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{
-            width: galaxyWidth + 10,
-            height: galaxyHeight + 8,
-            border: `1px solid ${isDormant ? `${color}1a` : `${color}26`}`,
-            boxShadow: isSelected ? `0 0 18px ${color}20` : 'none',
-          }}
-        />
-
-        {(isSelected || isLocked || isSeed) && (
+        {/* ── Selection pulse ring ── */}
+        {isSelected && (
           <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="absolute left-1/2 top-1/2 rounded-full"
             style={{
-              width: galaxyWidth + 26,
-              height: galaxyHeight + 18,
-              border: `1px dashed ${isLocked ? '#f0c86c55' : `${color}30`}`,
-              opacity: 0.9,
+              width:  gW + 50,
+              height: gH + 36,
+              transform: 'translate(-50%, -50%)',
+              border: `1px solid ${color}44`,
+              boxShadow: `0 0 36px ${color}22, inset 0 0 36px ${color}11`,
+              animation: 'pulse-ring 2.4s ease-in-out infinite',
             }}
           />
         )}
 
-        <div
-          className="absolute left-1/2 top-1/2 rounded-full"
-          style={{
-            width: galaxyWidth * 0.96,
-            height: galaxyHeight * 0.4,
-            transform: 'translate(-50%, -50%) rotate(24deg)',
-            background: `linear-gradient(90deg, transparent 0%, ${color}${isDormant ? '20' : '6e'} 22%, ${color}${isDormant ? '26' : 'a8'} 50%, ${color}${isDormant ? '20' : '6e'} 78%, transparent 100%)`,
-            filter: 'blur(9px)',
-            opacity: isDormant ? 0.32 : 0.88,
-          }}
-        />
+        {/* ── Secondary outer ring ── */}
+        {(isSelected || isLocked) && (
+          <div
+            className="absolute left-1/2 top-1/2 rounded-full"
+            style={{
+              width:  gW + 22,
+              height: gH + 14,
+              transform: 'translate(-50%, -50%)',
+              border: `1px solid ${isLocked ? '#f5cc7228' : `${color}22`}`,
+              boxShadow: `0 0 18px ${color}18`,
+            }}
+          />
+        )}
 
+        {/* ── Rotating orbital bands ── */}
         <div
-          className="absolute left-1/2 top-1/2 rounded-full"
+          className="absolute inset-0"
           style={{
-            width: galaxyWidth * 0.84,
-            height: galaxyHeight * 0.28,
-            transform: 'translate(-50%, -50%) rotate(-22deg)',
-            background: `linear-gradient(90deg, transparent 0%, ${color}${isDormant ? '16' : '48'} 18%, ${color}${isDormant ? '1d' : '7a'} 50%, ${color}${isDormant ? '16' : '48'} 82%, transparent 100%)`,
-            filter: 'blur(10px)',
-            opacity: isDormant ? 0.26 : 0.72,
+            animation: shouldAnimate ? `orbit-spin ${orbitDur} linear infinite` : 'none',
           }}
-        />
+        >
+          <div
+            className="absolute left-1/2 top-1/2 rounded-full"
+            style={{
+              width:  gW * 0.97,
+              height: gH * 0.42,
+              transform: 'translate(-50%, -50%) rotate(24deg)',
+              background: `linear-gradient(90deg,
+                transparent 0%,
+                ${color}${isDormant ? '1a' : '5a'} 18%,
+                ${color}${isDormant ? '22' : '96'} 50%,
+                ${color}${isDormant ? '1a' : '5a'} 82%,
+                transparent 100%
+              )`,
+              filter: 'blur(8px)',
+              opacity: isDormant ? 0.28 : isSelected ? 1 : 0.7,
+            }}
+          />
+          <div
+            className="absolute left-1/2 top-1/2 rounded-full"
+            style={{
+              width:  gW * 0.82,
+              height: gH * 0.28,
+              transform: 'translate(-50%, -50%) rotate(-22deg)',
+              background: `linear-gradient(90deg,
+                transparent 0%,
+                ${color}${isDormant ? '12' : '3a'} 16%,
+                ${color}${isDormant ? '18' : '68'} 50%,
+                ${color}${isDormant ? '12' : '3a'} 84%,
+                transparent 100%
+              )`,
+              filter: 'blur(10px)',
+              opacity: isDormant ? 0.22 : isSelected ? 0.9 : 0.52,
+            }}
+          />
+        </div>
 
+        {/* ── Core (the star) ── */}
         <div
           className="absolute left-1/2 top-1/2 rounded-full"
           style={{
-            width: coreSize,
+            width:  coreSize,
             height: coreSize,
             transform: 'translate(-50%, -50%)',
             background: isDormant
-              ? `radial-gradient(circle, rgba(255,255,255,0.42) 0%, ${color}66 46%, transparent 100%)`
+              ? `radial-gradient(circle, rgba(255,255,255,0.35) 0%, ${color}55 46%, transparent 100%)`
               : isLocked
-                ? 'radial-gradient(circle, #fff4cc 0%, #f0c86c 42%, rgba(240,200,108,0.1) 100%)'
-                : `radial-gradient(circle, #ffffff 0%, ${color} 42%, rgba(255,255,255,0.06) 100%)`,
-            boxShadow: isDormant ? 'none' : `0 0 14px ${color}, 0 0 28px ${color}66`,
+                ? 'radial-gradient(circle, #fff8e0 0%, #f5cc72 38%, rgba(245,204,114,0.08) 100%)'
+                : `radial-gradient(circle, #ffffff 0%, ${color} 40%, rgba(255,255,255,0.04) 100%)`,
+            boxShadow: isDormant
+              ? 'none'
+              : isSelected
+                ? `0 0 22px ${color}, 0 0 50px ${color}88, 0 0 80px ${color}33`
+                : isLocked
+                  ? `0 0 18px #f5cc72, 0 0 44px #f5cc7266`
+                  : `0 0 14px ${color}, 0 0 28px ${color}55`,
           }}
         >
           <div
             className="absolute inset-0 flex items-center justify-center rounded-full"
             style={{
-              color: '#f7fbff',
-              fontSize: size < 60 ? 10 : 12,
-              textShadow: '0 0 10px rgba(255,255,255,0.32)',
+              color: isDormant ? 'rgba(200,210,230,0.5)' : '#f8fbff',
+              fontSize: size < 62 ? 10 : 12,
+              textShadow: '0 0 8px rgba(255,255,255,0.4)',
             }}
           >
             {icon}
           </div>
         </div>
 
-        {[0, 1, 2].map((index) => (
+        {/* ── Orbiting sparkle dots ── */}
+        {shouldAnimate && (
           <div
-            key={index}
-            className="absolute rounded-full"
+            className="absolute inset-0"
             style={{
-              width: 3 + index,
-              height: 3 + index,
-              left: `${28 + index * 20}%`,
-              top: `${34 + (index % 2) * 18}%`,
-              background: 'rgba(255,255,255,0.84)',
-              boxShadow: `0 0 8px ${color}66`,
-              opacity: isDormant ? 0.24 : 0.66 - index * 0.1,
+              animation: `orbit-spin ${orbitDur} linear infinite`,
+              animationDirection: 'reverse',
             }}
-          />
-        ))}
+          >
+            {[0, 120, 240].map((angleDeg, idx) => {
+              const rad = (angleDeg * Math.PI) / 180;
+              const rx  = gW * 0.44;
+              const ry  = gH * 0.38;
+              const cx  = gW / 2 + rx * Math.cos(rad) - (2 + idx * 0.5);
+              const cy  = gH / 2 + ry * Math.sin(rad) - (2 + idx * 0.5);
+              return (
+                <div
+                  key={idx}
+                  className="absolute rounded-full"
+                  style={{
+                    width:  3 + idx * 0.5,
+                    height: 3 + idx * 0.5,
+                    left:   cx,
+                    top:    cy,
+                    background: 'rgba(255,255,255,0.88)',
+                    boxShadow: `0 0 7px ${color}77`,
+                    opacity: 0.65 - idx * 0.1,
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
 
+        {/* ── Lock badge ── */}
         {isLocked && (
           <div
             className="absolute flex items-center justify-center rounded-full"
             style={{
-              width: 20,
-              height: 20,
-              top: 0,
-              right: 10,
-              background: '#f0c86c',
-              boxShadow: '0 0 10px rgba(240,200,108,0.6)',
+              width:  22,
+              height: 22,
+              top:    -2,
+              right:  8,
+              background: 'radial-gradient(circle, #fff5d0, #f5cc72)',
+              boxShadow: '0 0 12px rgba(245,204,114,0.7), 0 0 28px rgba(245,204,114,0.3)',
             }}
           >
-            <span style={{ fontSize: '9px', color: '#0a0a12', lineHeight: 1 }}>✦</span>
+            <span style={{ fontSize: '9px', color: '#3a2800', lineHeight: 1 }}>✦</span>
+          </div>
+        )}
+
+        {/* ── Selected label ── */}
+        {isSelected && (
+          <div
+            className="absolute left-1/2 top-0 -translate-x-1/2 rounded-full px-3 py-1 text-[10px] font-semibold tracking-[0.18em]"
+            style={{
+              background: `${color}1e`,
+              color: '#f0f4ff',
+              border: `1px solid ${color}28`,
+              boxShadow: `0 0 18px ${color}22`,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            已选中
           </div>
         )}
       </div>
 
+      {/* ── Title label ── */}
       <div
         className="absolute left-1/2 -translate-x-1/2 rounded-full px-3 py-1.5 text-[10px] font-medium"
         style={{
-          top: galaxyHeight + 16,
-          maxWidth: 170,
-          background: 'rgba(5,10,20,0.76)',
-          border: `1px solid ${isSelected ? `${color}48` : 'rgba(255,255,255,0.08)'}`,
-          color: isDormant ? 'var(--text-muted)' : 'var(--text-primary)',
-          boxShadow: isSelected ? `0 0 16px ${color}16` : 'none',
-          backdropFilter: 'blur(10px)',
+          top: NODE_CENTER_Y + Math.max(gH / 2, 34) + 18,
+          maxWidth: 180,
+          background: isSelected
+            ? 'rgba(8, 14, 30, 0.96)'
+            : isDormant
+              ? 'rgba(4, 6, 14, 0.55)'
+              : 'rgba(5, 8, 18, 0.76)',
+          color: isDormant
+            ? 'var(--text-muted)'
+            : isSelected
+              ? '#e8eeff'
+              : 'var(--text-secondary)',
+          border: isSelected
+            ? `1px solid ${color}22`
+            : '1px solid rgba(255,255,255,0.04)',
+          boxShadow: isSelected
+            ? `0 0 24px ${color}18`
+            : '0 4px 16px rgba(0,0,0,0.24)',
+          backdropFilter: 'blur(12px)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',

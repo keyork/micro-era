@@ -1,36 +1,98 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLLMConfig } from '@/hooks/useLLMConfig';
-import { callLLM } from '@/lib/llm/client';
 
 type TestState = 'idle' | 'testing' | 'success' | 'error';
 
-export function SettingsPanel() {
+interface Props {
+  defaultOpen?: boolean;
+}
+
+export function SettingsPanel({ defaultOpen = false }: Props) {
   const { config, setConfig, isConfigured } = useLLMConfig();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [testState, setTestState] = useState<TestState>('idle');
   const [testMessage, setTestMessage] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
 
   const handleTest = async () => {
-    if (!config.apiKey.trim()) {
+    if (testState === 'testing') return;
+
+    const apiKey = config.apiKey.trim();
+    const model = (config.model || 'gpt-4o-mini').trim();
+    const rawBaseUrl = (config.baseUrl || 'https://api.openai.com/v1').trim();
+    let baseUrl = rawBaseUrl.replace(/\/+$/, '');
+
+    if (!apiKey) {
       setTestState('error');
-      setTestMessage('请先填写 API Key');
+      setTestMessage('填一下 API Key');
       return;
     }
+
+    if (!model) {
+      setTestState('error');
+      setTestMessage('填一下 Model Name');
+      return;
+    }
+
+    try {
+      const parsed = new URL(baseUrl);
+      if (!/^https?:$/.test(parsed.protocol)) {
+        throw new Error('URL must use http or https.');
+      }
+      baseUrl = parsed.toString().replace(/\/+$/, '');
+    } catch {
+      setTestState('error');
+      setTestMessage('Base URL 格式不正确，例如 https://api.openai.com/v1');
+      return;
+    }
+
+    if (baseUrl !== config.baseUrl || model !== config.model || apiKey !== config.apiKey) {
+      setConfig({ baseUrl, model, apiKey });
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setTestState('testing');
     setTestMessage('');
 
     try {
-      await callLLM(config, '你是一个测试助手。', '请回复"连接成功"四个字。');
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          max_tokens: 16,
+          messages: [{ role: 'user', content: 'Say "ok" in one word.' }],
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${body.slice(0, 120)}`);
+      }
+
       setTestState('success');
-      setTestMessage('连接成功！API 配置正确。');
+      setTestMessage(`连接成功，当前模型: ${model}`);
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setTestState('error');
-      const msg = err instanceof Error ? err.message : '连接失败';
+      const msg = err instanceof TypeError
+        ? '连接失败。请检查 Base URL、网络/CORS 策略，或确认该兼容接口允许浏览器直接调用。'
+        : err instanceof Error ? err.message : '连接失败';
       setTestMessage(msg);
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
     }
   };
 
@@ -44,8 +106,15 @@ export function SettingsPanel() {
   const testStyle = testStateStyles[testState];
 
   return (
-    <div className="rounded-[24px] overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+    <div
+      className="overflow-hidden rounded-[24px]"
+      style={{
+        background: 'rgba(255,255,255,0.03)',
+        boxShadow: '0 22px 70px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.015)',
+      }}
+    >
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between gap-3 px-5 py-4 transition-all"
         style={{ color: 'var(--text-primary)' }}
@@ -81,13 +150,15 @@ export function SettingsPanel() {
                 </label>
                 <input
                   type="password"
+                  name="llm-api-key"
+                  autoComplete="off"
                   value={config.apiKey}
                   onChange={(e) => { setConfig({ apiKey: e.target.value }); setTestState('idle'); }}
                   placeholder="sk-..."
                   className="cosmic-input w-full rounded-2xl px-4 py-3 text-sm"
                 />
                 <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  密钥保存在浏览器本地，不会发送到任何服务器。
+                  密钥只存在你的浏览器里，不会上传。
                 </p>
               </div>
 
@@ -96,14 +167,16 @@ export function SettingsPanel() {
                   Base URL <span style={{ color: 'var(--text-muted)' }}>(可选)</span>
                 </label>
                 <input
-                  type="text"
+                  type="url"
+                  name="llm-base-url"
+                  autoComplete="url"
                   value={config.baseUrl}
                   onChange={(e) => { setConfig({ baseUrl: e.target.value }); setTestState('idle'); }}
                   placeholder="https://api.openai.com/v1"
                   className="cosmic-input w-full rounded-2xl px-4 py-3 text-sm"
                 />
                 <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  留空使用 OpenAI；可填 Moonshot、DeepSeek 等兼容接口地址。
+                  留空默认 OpenAI。也支持 Moonshot、DeepSeek 等兼容接口。
                 </p>
               </div>
 
@@ -113,6 +186,8 @@ export function SettingsPanel() {
                 </label>
                 <input
                   type="text"
+                  name="llm-model-name"
+                  autoComplete="off"
                   value={config.model}
                   onChange={(e) => { setConfig({ model: e.target.value }); setTestState('idle'); }}
                   placeholder="gpt-4o-mini"
@@ -122,19 +197,26 @@ export function SettingsPanel() {
 
               <div className="flex items-center gap-3">
                 <button
+                  type="button"
                   onClick={handleTest}
                   disabled={testState === 'testing'}
                   className="rounded-2xl px-5 py-2.5 text-sm font-semibold transition-all duration-300 disabled:opacity-30"
-                  style={{ background: testStyle.bg, color: testStyle.color, border: '1px solid rgba(255,255,255,0.06)' }}
+                  style={{
+                    background: testStyle.bg,
+                    color: testStyle.color,
+                    boxShadow: '0 14px 30px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.02)',
+                  }}
                 >
-                  {testState === 'testing' ? '测试中...' : testState === 'success' ? '测试通过 ✓' : testState === 'error' ? '重新测试' : '测试连接'}
+                  {testState === 'testing' ? '测试中...' : testState === 'success' ? '连接正常 ✓' : testState === 'error' ? '重新测试' : '测试连接'}
                 </button>
                 {testState === 'testing' && (
                   <div
                     className="h-5 w-5 rounded-full"
                     style={{
-                      border: '2px solid rgba(111,119,255,0.14)',
-                      borderTopColor: 'var(--color-primary)',
+                      background:
+                        'conic-gradient(from 180deg, rgba(111,119,255,0.08), var(--color-primary), rgba(83,198,175,0.42), rgba(111,119,255,0.08))',
+                      WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px))',
+                      mask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px))',
                       animation: 'studio-spin 0.9s linear infinite',
                     }}
                   />

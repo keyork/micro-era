@@ -48,17 +48,17 @@ const pendingCopy: Record<Exclude<PendingAction, null>, string> = {
 function getNextInstruction(pendingAction: PendingAction) {
   switch (pendingAction) {
     case 'big_bang':
-      return '接下来：先浏览第一批候选，选出最想继续的 1 个方向。';
+      return '浏览第一批候选，选 1 个最想继续的方向。';
     case 'evolve':
-      return '接下来：等新节点出现后，继续留下最值得推进的方向。';
+      return '新节点出现后，继续保留最值得推进的。';
     case 'hybridize':
-      return '接下来：重点看融合结果是不是比原来的两条线更具体、更有冲突。';
+      return '看看融合结果是不是比原来两条线更具体、更有冲突。';
     case 'lock':
-      return '接下来：Brief 生成完成后，你就可以直接进入写稿或策划。';
+      return 'Brief 生成完成后，可以直接进入写稿或策划。';
     case 'revive':
-      return '接下来：把复活的节点和当前保留方向再比较一次。';
+      return '把复活的节点和当前保留方向再比较一次。';
     default:
-      return '接下来：如果你拿不准，先只保留一个你真的愿意做出来的方向。';
+      return '拿不准的话，先只保留一个你真的愿意做出来的方向。';
   }
 }
 
@@ -80,13 +80,13 @@ export function CanvasStatusBanner({
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
-            className="absolute left-1/2 top-5 z-20 w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 rounded-[28px] px-5 py-4"
+            className="absolute left-1/2 top-5 z-20 w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 rounded-[24px] px-5 py-4"
             style={{
-              background: 'rgba(8,12,22,0.82)',
+              background: 'rgba(2,4,12,0.90)',
               border: `1px solid ${style.border}`,
-              boxShadow: `0 20px 70px ${style.glow}, 0 0 0 1px rgba(255,255,255,0.03) inset`,
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
+              boxShadow: `0 22px 70px ${style.glow}, 0 16px 50px rgba(0,0,0,0.44), inset 0 1px 0 rgba(180,200,255,0.07)`,
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
             }}
           >
             <div className="flex items-start justify-between gap-4">
@@ -101,7 +101,7 @@ export function CanvasStatusBanner({
                   {getNextInstruction(pendingAction)}
                 </p>
               </div>
-              <div className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: style.accent }}>
+              <div className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.20em] hud-text" style={{ color: style.accent }}>
                 {pendingAction ? pendingCopy[pendingAction] : '就绪'}
               </div>
             </div>
@@ -116,19 +116,19 @@ export function CanvasStatusBanner({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-4"
-            style={{ background: 'rgba(5,8,16,0.55)' }}
+            style={{ background: 'rgba(2,4,12,0.65)' }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
-              className="w-full max-w-md rounded-[32px] p-6"
+              className="w-full max-w-md rounded-[28px] p-6"
               style={{
-                background: 'linear-gradient(180deg, rgba(11,15,25,0.93), rgba(11,15,25,0.80))',
-                border: `1px solid ${errorMessage ? 'rgba(240,108,140,0.20)' : 'rgba(255,255,255,0.07)'}`,
-                boxShadow: '0 30px 120px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.03) inset',
-                backdropFilter: 'blur(22px)',
-                WebkitBackdropFilter: 'blur(22px)',
+                background: 'rgba(2,4,12,0.94)',
+                border: `1px solid ${errorMessage ? 'rgba(240,108,140,0.18)' : 'rgba(255,255,255,0.07)'}`,
+                boxShadow: '0 36px 120px rgba(0,0,0,0.58), inset 0 1px 0 rgba(180,200,255,0.08)',
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
               }}
             >
               <div className="mb-5 flex items-center gap-4">
@@ -142,10 +142,10 @@ export function CanvasStatusBanner({
                 />
                 <div>
                   <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {errorMessage ? '流程被中断了' : activity?.title ?? '正在准备画板'}
+                    {errorMessage ? '流程中断' : activity?.title ?? '正在准备画板'}
                   </p>
                   <p className="text-sm leading-6" style={{ color: 'var(--text-secondary)' }}>
-                    {errorMessage ?? activity?.detail ?? '请稍等，系统正在准备演化引擎。'}
+                    {errorMessage ?? activity?.detail ?? '正在准备演化引擎。'}
                   </p>
                 </div>
               </div>
@@ -153,12 +153,12 @@ export function CanvasStatusBanner({
               <div className="space-y-3">
                 {[
                   {
-                    title: '读取会话与已有节点',
+                    title: '读取会话和已有节点',
                     done: true,
                     active: false,
                   },
                   {
-                    title: pendingAction === 'lock' ? '整理并生成最终 Brief' : '生成候选节点',
+                    title: pendingAction === 'lock' ? '整理并生成 Brief' : '生成候选节点',
                     done: false,
                     active: pendingAction === 'big_bang' || pendingAction === 'lock',
                   },

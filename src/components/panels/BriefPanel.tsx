@@ -10,8 +10,64 @@ interface Props {
   brief: IdeaBrief;
 }
 
+function escapeMarkdown(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/#/g, '\\#')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]');
+}
+
+function buildMarkdownDocument(brief: IdeaBrief, pathSteps: string[]): string {
+  const outline = brief.outlinePoints
+    .map((point, index) => `${index + 1}. ${escapeMarkdown(point)}`)
+    .join('\n');
+  const path = pathSteps.length > 0
+    ? pathSteps.map((step, index) => `${index + 1}. ${escapeMarkdown(step)}`).join('\n')
+    : '无';
+
+  return [
+    '# Micro Era Brief',
+    '',
+    `导出时间：${new Date().toLocaleString('zh-CN')}`,
+    '',
+    '## 核心角度',
+    '',
+    escapeMarkdown(brief.coreAngle),
+    '',
+    '## 目标受众',
+    '',
+    escapeMarkdown(brief.targetAudience),
+    '',
+    '## 内容大纲',
+    '',
+    outline || '无',
+    '',
+    '## 演化路径',
+    '',
+    path,
+    '',
+  ].join('\n');
+}
+
+function downloadMarkdown(filename: string, markdown: string): void {
+  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function BriefPanel({ brief }: Props) {
-  const { reset, nodes } = useEvolutionStore();
+  const reset = useEvolutionStore((state) => state.reset);
+  const nodes = useEvolutionStore((state) => state.nodes);
   const router = useRouter();
 
   // Resolve node titles from store for the evolution path (IDs → titles)
@@ -19,6 +75,11 @@ export function BriefPanel({ brief }: Props) {
     const node = nodes.get(id);
     return node?.title ?? id.slice(0, 8) + '…';
   });
+
+  const handleExportMarkdown = () => {
+    const markdown = buildMarkdownDocument(brief, pathSteps);
+    downloadMarkdown(`micro-era-brief-${brief.id.slice(0, 8)}.md`, markdown);
+  };
 
   return (
     <motion.div
@@ -49,7 +110,7 @@ export function BriefPanel({ brief }: Props) {
             className="text-xs font-semibold uppercase tracking-[0.28em]"
             style={{ color: 'var(--color-gold)' }}
           >
-            选题 Brief 已生成
+            Brief 已生成
           </p>
           <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
             方向已锁定
@@ -121,10 +182,10 @@ export function BriefPanel({ brief }: Props) {
                   className="text-xs font-semibold uppercase tracking-[0.22em]"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  进化路径
+                  演化路径
                 </h3>
                 <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  经过 {pathSteps.length} 个关键节点收敛至最终方向
+                  经过 {pathSteps.length} 个节点收敛至此
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -152,8 +213,8 @@ export function BriefPanel({ brief }: Props) {
           )}
 
           <div className="flex gap-3 pt-2">
-            <GlowButton variant="gold" className="flex-1" onClick={() => window.print()}>
-              导出 Brief
+            <GlowButton variant="gold" className="flex-1" onClick={handleExportMarkdown}>
+              导出 Markdown
             </GlowButton>
             <GlowButton
               variant="ghost"

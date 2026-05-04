@@ -1,4 +1,4 @@
-import { callLLM, type LLMConfig } from '../llm/client';
+import { LLMFormatError, callLLM, type LLMConfig } from '../llm/client';
 import type { IdeaNode } from '@/types/idea';
 
 const HYBRID_SYSTEM_PROMPT = `你是微纪元的概念融合专家。你的任务是将两个不同方向的 idea 杂交成一个新物种。
@@ -58,19 +58,33 @@ export class HybridAgent {
       .replace('{parent_b_description}', parentB.description ?? '')
       .replace('{parent_b_tags}', parentB.tags.join(', '));
 
-    const raw = (await callLLM(
-      this.config,
-      HYBRID_SYSTEM_PROMPT,
-      user,
-    )) as Record<string, unknown>;
+    let raw: Record<string, unknown>;
+    try {
+      raw = (await callLLM(
+        this.config,
+        HYBRID_SYSTEM_PROMPT,
+        user,
+      )) as Record<string, unknown>;
+    } catch (error) {
+      if (!(error instanceof LLMFormatError)) {
+        throw error;
+      }
+
+      raw = {
+        title: `${parentA.title.slice(0, 10)} × ${parentB.title.slice(0, 10)}`,
+        description: '保留两个方向里最强的一点，先合成一个可继续打磨的新切口。',
+        tags: Array.from(new Set([...parentA.tags, ...parentB.tags])).slice(0, 3),
+        whyPromising: '两个方向已经被压成一个可继续验证的最小杂交体。',
+      };
+    }
 
     return {
       id: crypto.randomUUID(),
       sessionId,
-      title: raw['title'] as string,
-      description: raw['description'] as string | undefined,
+      title: typeof raw['title'] === 'string' ? raw['title'] : `${parentA.title.slice(0, 10)} × ${parentB.title.slice(0, 10)}`,
+      description: typeof raw['description'] === 'string' ? raw['description'] : '保留两个方向里最强的一点，先合成一个可继续打磨的新切口。',
       tags: (raw['tags'] as string[]) ?? [],
-      whyPromising: raw['whyPromising'] as string | undefined,
+      whyPromising: typeof raw['whyPromising'] === 'string' ? raw['whyPromising'] : '两个方向已经被压成一个可继续验证的最小杂交体。',
       parentIds: [parentA.id, parentB.id],
       generation,
       mutationType: 'hybrid',

@@ -11,19 +11,19 @@ interface Props {
 }
 
 const STATUS_COPY: Record<string, string> = {
-  dormant: '这个方向已淘汰——双击节点可把它重新拉回候选池。',
-  locked: '这个方向已锁定，并用于生成最终 Brief。',
+  dormant: '这个方向已被淘汰。双击可以重新拉回来。',
+  locked: '这个方向已锁定，Brief 已基于它生成。',
 };
 
 const STATUS_EXTRA_COPY: Record<string, string> = {
-  dormant: '只有当你重新觉得它比当前候选更有意思时，才值得复活。',
-  locked: '如果你已经锁定它，接下来最重要的是把 Brief 真的落到选题和结构上。',
+  dormant: '如果它比当前候选更让你心动，就值得复活。',
+  locked: '接下来把 Brief 落到实际选题和结构里。',
 };
 
 export function NodeDetail({ idea, onClose }: Props) {
   const actionHint =
     STATUS_COPY[idea.status] ??
-    '点击其他节点继续比较；底部操作栏会根据你的选择数给出下一步操作。';
+    '继续点其他节点比较。底部操作栏会提示下一步。';
 
   const accentColor =
     idea.status === 'locked'
@@ -39,28 +39,28 @@ export function NodeDetail({ idea, onClose }: Props) {
         initial={{ x: 340, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 340, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-        className="absolute right-4 top-20 z-20 w-80 overflow-y-auto rounded-[28px]"
+        transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+        className="absolute right-4 top-20 z-20 w-80 overflow-y-auto rounded-[26px]"
         style={{
-          background: 'rgba(10,14,24,0.90)',
-          border: '1px solid rgba(255,255,255,0.09)',
+          background: 'rgba(2,4,12,0.92)',
+          border: '1px solid rgba(255,255,255,0.07)',
           maxHeight: 'calc(100vh - 130px)',
-          boxShadow: '0 24px 90px rgba(0,0,0,0.40)',
-          backdropFilter: 'blur(22px)',
+          boxShadow: '0 32px 100px rgba(0,0,0,0.56), inset 0 1px 0 rgba(180,200,255,0.08)',
+          backdropFilter: 'blur(26px)',
         }}
       >
         {/* Header */}
         <div
-          className="sticky top-0 z-10 flex items-start justify-between gap-3 px-5 pt-5 pb-4"
+          className="sticky top-0 z-10 flex items-start justify-between gap-3 px-5 pt-4 pb-3"
           style={{
-            background: 'rgba(10,14,24,0.95)',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            background: 'rgba(2,4,12,0.96)',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
           }}
         >
           <div className="space-y-2 min-w-0">
             <MutationBadge type={idea.mutationType} />
-            <p className="text-xs uppercase tracking-[0.18em]" style={{ color: accentColor }}>
-              第 {idea.generation} 代
+            <p className="text-[10px] uppercase tracking-[0.20em] hud-text" style={{ color: accentColor }}>
+              Gen {String(idea.generation).padStart(2, '0')}
             </p>
           </div>
           <button
@@ -108,7 +108,7 @@ export function NodeDetail({ idea, onClose }: Props) {
           )}
 
           {idea.whyPromising && (
-            <section className="space-y-2 rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <section className="space-y-2 rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.022)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: 'inset 0 1px 0 rgba(180,200,255,0.04)' }}>
               <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>
                 为什么值得继续
               </p>
@@ -119,7 +119,7 @@ export function NodeDetail({ idea, onClose }: Props) {
           )}
 
           {idea.scores && (
-            <div className="space-y-3 rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div className="space-y-3 rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.022)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: 'inset 0 1px 0 rgba(180,200,255,0.04)' }}>
               <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>
                 Critic 评分
               </p>
@@ -131,16 +131,16 @@ export function NodeDetail({ idea, onClose }: Props) {
 
           <section
             className="rounded-2xl p-4"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+            style={{ background: 'rgba(255,255,255,0.022)', border: '1px solid rgba(255,255,255,0.05)', boxShadow: 'inset 0 1px 0 rgba(180,200,255,0.04)' }}
           >
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>
-              操作提示
+              提示
             </p>
             <p className="text-sm leading-6" style={{ color: 'var(--text-secondary)' }}>
               {actionHint}
             </p>
             <p className="mt-2 text-xs leading-5" style={{ color: 'var(--text-muted)' }}>
-              {STATUS_EXTRA_COPY[idea.status] ?? '如果你还拿不准，就先把它和另外一个你最犹豫的方向并排比较。'}
+              {STATUS_EXTRA_COPY[idea.status] ?? '拿不准的话，先把它和另一个方向并排比较。'}
             </p>
           </section>
         </div>

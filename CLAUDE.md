@@ -31,6 +31,7 @@ npx tsc --noEmit   # type-check only
 ### Pure frontend — no backend
 
 This is a **pure frontend application**. All logic runs in the browser:
+
 - LLM calls go directly from browser to OpenAI-compatible APIs using `fetch`
 - Sessions, nodes, and briefs are persisted in `localStorage`
 - No server, no WebSocket, no database required
@@ -75,6 +76,7 @@ Users configure their API key through the SettingsPanel on the home page. The co
 ```
 
 Any OpenAI-compatible provider works:
+
 - **OpenAI**: leave baseUrl empty, model = `gpt-4o`
 - **Moonshot**: baseUrl = `https://api.moonshot.cn/v1`, model = `moonshot-v1-8k`
 - **DeepSeek**: baseUrl = `https://api.deepseek.com/v1`, model = `deepseek-chat`

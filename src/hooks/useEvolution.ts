@@ -14,23 +14,21 @@ function delay(ms: number): Promise<void> {
 }
 
 export function useEvolution(sessionId: string) {
-  const {
-    addNode,
-    setEvolving,
-    updateNodeStatus,
-    setBrief,
-    clearSelection,
-    setActivity,
-    setPendingAction,
-    setErrorMessage,
-    updateSession,
-  } = useEvolutionStore();
+  const addNode = useEvolutionStore((state) => state.addNode);
+  const setEvolving = useEvolutionStore((state) => state.setEvolving);
+  const updateNodeStatus = useEvolutionStore((state) => state.updateNodeStatus);
+  const setBrief = useEvolutionStore((state) => state.setBrief);
+  const clearSelection = useEvolutionStore((state) => state.clearSelection);
+  const setActivity = useEvolutionStore((state) => state.setActivity);
+  const setPendingAction = useEvolutionStore((state) => state.setPendingAction);
+  const setErrorMessage = useEvolutionStore((state) => state.setErrorMessage);
+  const updateSession = useEvolutionStore((state) => state.updateSession);
 
   const { config, isConfigured } = useLLMConfig();
 
   const makeEngine = useCallback(() => {
     if (!isConfigured) {
-      throw new Error('请先在设置中配置 API Key。');
+      throw new Error('先在设置中配好 API Key。');
     }
     return new EvolutionEngine(config);
   }, [config, isConfigured]);
@@ -44,7 +42,7 @@ export function useEvolution(sessionId: string) {
     setErrorMessage(null);
     setActivity({
       title: '正在展开第一批方向',
-      detail: '这一步需要等待模型完成首轮发散，你会看到节点逐个出现。',
+      detail: '模型正在做首轮发散，节点会逐个出现。',
       tone: 'accent',
     });
 
@@ -57,11 +55,24 @@ export function useEvolution(sessionId: string) {
         session.channelDescription,
       );
 
+      const latestSession = localStore.getSession(sessionId);
+      const existingNodes = localStore.getSessionNodes(sessionId);
+      if ((latestSession?.currentGeneration ?? 0) > 0 || existingNodes.length > 0) {
+        setEvolving(false);
+        setPendingAction(null);
+        setActivity({
+          title: '首轮演化已完成',
+          detail: '检测到画板已经有节点，已跳过重复写入。',
+          tone: 'success',
+        });
+        return;
+      }
+
       for (let i = 0; i < nodes.length; i++) {
         localStore.saveNode(nodes[i]);
         setActivity({
           title: i === 0 ? '种子已创建' : '新的分支正在出现',
-          detail: `正在把第 ${nodes[i].generation} 代候选节点加入画板：${nodes[i].title}`,
+          detail: `第 ${nodes[i].generation} 代节点加入画板：${nodes[i].title}`,
           tone: 'accent',
         });
         addNode(nodes[i]);
@@ -86,12 +97,12 @@ export function useEvolution(sessionId: string) {
       setPendingAction(null);
       setErrorMessage(null);
       setActivity({
-        title: '这一轮进化完成',
-        detail: '已生成到第 1 代，你可以继续筛选、融合或锁定方向。',
+        title: '这一轮演化完成',
+        detail: '已到第 1 代，继续筛选、融合或锁定。',
         tone: 'success',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : '大爆炸失败，请重试。';
+      const message = error instanceof Error ? error.message : '首轮展开失败，请重试。';
       setEvolving(false);
       setPendingAction(null);
       setErrorMessage(message);
@@ -114,8 +125,8 @@ export function useEvolution(sessionId: string) {
     setActivity({
       title: hybridize ? '正在融合两条方向' : '正在扩展新的方向',
       detail: hybridize
-        ? '系统会把两条已选方向交叉组合，并评估新的内容切口。'
-        : `系统会围绕你选中的 ${selectedIds.length} 个节点继续扩写下一代候选。`,
+        ? '两条方向正在交叉组合，评估新的切口。'
+        : `围绕你选中的节点继续扩写下一代。`,
       tone: 'accent',
     });
 
@@ -147,7 +158,7 @@ export function useEvolution(sessionId: string) {
         localStore.saveNode(newNodes[i]);
         setActivity({
           title: '新的分支正在出现',
-          detail: `正在把第 ${newNodes[i].generation} 代候选节点加入画板：${newNodes[i].title}`,
+          detail: `第 ${newNodes[i].generation} 代节点加入画板：${newNodes[i].title}`,
           tone: 'accent',
         });
         addNode(newNodes[i]);
@@ -175,12 +186,12 @@ export function useEvolution(sessionId: string) {
       clearSelection();
       setErrorMessage(null);
       setActivity({
-        title: '这一轮进化完成',
-        detail: `已生成到第 ${nextGen} 代，你可以继续筛选、融合或锁定方向。`,
+        title: '这一轮演化完成',
+        detail: `已到第 ${nextGen} 代，继续筛选、融合或锁定。`,
         tone: 'success',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : '进化失败，请重试。';
+      const message = error instanceof Error ? error.message : '演化失败，请重试。';
       setEvolving(false);
       setPendingAction(null);
       setErrorMessage(message);
@@ -201,7 +212,7 @@ export function useEvolution(sessionId: string) {
     setErrorMessage(null);
     setActivity({
       title: '正在生成最终 Brief',
-      detail: '系统会把当前方向整理成可直接进入创作的执行提纲。',
+      detail: '正在整理成可以直接进入创作的执行提纲。',
       tone: 'accent',
     });
 
@@ -237,7 +248,7 @@ export function useEvolution(sessionId: string) {
       setBrief(brief);
       setActivity({
         title: '方向已锁定',
-        detail: '最终 Brief 已经准备完成。',
+        detail: 'Brief 已准备完成。',
         tone: 'success',
       });
       return brief;
@@ -260,7 +271,7 @@ export function useEvolution(sessionId: string) {
     setErrorMessage(null);
     setActivity({
       title: '正在复活这个方向',
-      detail: '把已淘汰分支重新放回当前候选池，方便继续比较。',
+      detail: '把淘汰分支放回候选池，方便继续比较。',
       tone: 'accent',
     });
 

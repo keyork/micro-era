@@ -50,11 +50,9 @@ export function useLLMConfig() {
   }, []);
 
   const setConfig = useCallback((update: Partial<LLMConfig>) => {
-    setConfigState((prev) => {
-      const next = { ...prev, ...update };
-      saveConfigAndNotify(next);
-      return next;
-    });
+    const next = { ...loadConfig(), ...update };
+    setConfigState(next);
+    saveConfigAndNotify(next);
   }, []);
 
   const isConfigured = config.apiKey.trim().length > 0;

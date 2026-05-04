@@ -1,4 +1,4 @@
-import { callLLM, type LLMConfig } from '../llm/client';
+import { LLMFormatError, callLLM, type LLMConfig } from '../llm/client';
 import type { IdeaBrief, IdeaNode } from '@/types/idea';
 
 const BRIEF_SYSTEM_PROMPT = `你是微纪元的选题策划专家。用户已经通过进化过程锁定了一个最终 idea，你需要生成一份结构化的选题 Brief。
@@ -57,19 +57,48 @@ export class BriefAgent {
       .replace('{why_promising}', lockedNode.whyPromising ?? '')
       .replace('{evolution_path_summary}', pathSummary);
 
-    const raw = (await callLLM(
-      this.config,
-      BRIEF_SYSTEM_PROMPT,
-      user,
-    )) as Record<string, unknown>;
+    let raw: Record<string, unknown>;
+    try {
+      raw = (await callLLM(
+        this.config,
+        BRIEF_SYSTEM_PROMPT,
+        user,
+      )) as Record<string, unknown>;
+    } catch (error) {
+      if (!(error instanceof LLMFormatError)) {
+        throw error;
+      }
+
+      raw = {
+        coreAngle: lockedNode.description ?? `围绕「${lockedNode.title}」展开，把它打磨成一个可直接开做的内容主题。`,
+        targetAudience: channelDescription || '对这个主题已经有兴趣，但还没看到足够具体表达的人。',
+        outlinePoints: [
+          `先抛出核心问题：${lockedNode.title}`,
+          '解释这个角度为什么值得现在讨论。',
+          '给出 2-3 个最有说服力的观察或例子。',
+          '收束到一个明确结论或行动建议。',
+        ],
+      };
+    }
+
+    const outlinePoints = Array.isArray(raw['outlinePoints'])
+      ? raw['outlinePoints'].filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : [];
 
     return {
       id: crypto.randomUUID(),
       sessionId: lockedNode.sessionId,
       ideaId: lockedNode.id,
-      coreAngle: raw['coreAngle'] as string,
-      targetAudience: raw['targetAudience'] as string,
-      outlinePoints: raw['outlinePoints'] as string[],
+      coreAngle: typeof raw['coreAngle'] === 'string' ? raw['coreAngle'] : lockedNode.description ?? `围绕「${lockedNode.title}」展开，把它打磨成一个可直接开做的内容主题。`,
+      targetAudience: typeof raw['targetAudience'] === 'string' ? raw['targetAudience'] : channelDescription || '对这个主题已经有兴趣，但还没看到足够具体表达的人。',
+      outlinePoints: outlinePoints.length > 0
+        ? outlinePoints
+        : [
+            `先抛出核心问题：${lockedNode.title}`,
+            '解释这个角度为什么值得现在讨论。',
+            '给出 2-3 个最有说服力的观察或例子。',
+            '收束到一个明确结论或行动建议。',
+          ],
       evolutionPath: evolutionPathNodes.map((n) => n.id),
       createdAt: new Date().toISOString(),
     };

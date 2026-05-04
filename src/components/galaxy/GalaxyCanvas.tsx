@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -19,8 +20,7 @@ import { useEvolutionStore } from '@/stores/evolutionStore';
 import { useEvolution } from '@/hooks/useEvolution';
 import { useLLMConfig } from '@/hooks/useLLMConfig';
 import { computeLayout } from './GalaxyLayout';
-import { IdeaNodeComponent, MUTATION_COLORS } from './IdeaNodeComponent';
-import { EdgeComponent } from './EdgeComponent';
+import { MUTATION_COLORS } from './IdeaNodeComponent';
 import { IdeaNode } from '@/types/idea';
 import { ControlBar } from '@/components/panels/ControlBar';
 import { NodeDetail } from '@/components/panels/NodeDetail';
@@ -30,44 +30,48 @@ import { CanvasSidebar } from './CanvasSidebar';
 import { CanvasGuideCard } from './CanvasGuideCard';
 import { api } from '@/lib/api';
 import { NebulaBackdrop } from './NebulaBackdrop';
-
-const nodeTypes = { ideaNode: IdeaNodeComponent } as const;
-const edgeTypes = { evolutionEdge: EdgeComponent } as const;
+import { REACT_FLOW_EDGE_TYPES, REACT_FLOW_NODE_TYPES } from './reactFlowTypes';
 
 interface Props {
   sessionId: string;
 }
 
+const bootstrappingSessions = new Set<string>();
+
 export function GalaxyCanvas({ sessionId }: Props) {
-  const {
-    nodes: ideaNodes,
-    selectedNodeIds,
-    focusedNodeId,
-    brief,
-    session,
-    activity,
-    activityLog,
-    pendingAction,
-    errorMessage,
-    focusNode,
-    selectNode,
-    deselectNode,
-    setSession,
-    setNodes,
-    reset,
-    setActivity,
-    setPendingAction,
-    setErrorMessage,
-  } = useEvolutionStore();
+  const router = useRouter();
+  const ideaNodes = useEvolutionStore((state) => state.nodes);
+  const selectedNodeIds = useEvolutionStore((state) => state.selectedNodeIds);
+  const focusedNodeId = useEvolutionStore((state) => state.focusedNodeId);
+  const brief = useEvolutionStore((state) => state.brief);
+  const session = useEvolutionStore((state) => state.session);
+  const activity = useEvolutionStore((state) => state.activity);
+  const activityLog = useEvolutionStore((state) => state.activityLog);
+  const pendingAction = useEvolutionStore((state) => state.pendingAction);
+  const errorMessage = useEvolutionStore((state) => state.errorMessage);
+  const focusNode = useEvolutionStore((state) => state.focusNode);
+  const selectNode = useEvolutionStore((state) => state.selectNode);
+  const deselectNode = useEvolutionStore((state) => state.deselectNode);
+  const setSession = useEvolutionStore((state) => state.setSession);
+  const setNodes = useEvolutionStore((state) => state.setNodes);
+  const reset = useEvolutionStore((state) => state.reset);
+  const setActivity = useEvolutionStore((state) => state.setActivity);
+  const setPendingAction = useEvolutionStore((state) => state.setPendingAction);
+  const setErrorMessage = useEvolutionStore((state) => state.setErrorMessage);
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
   const [draggedPositions, setDraggedPositions] = useState<Record<string, XYPosition>>({});
+  const loadedSessionRef = useRef<string | null>(null);
 
   const { runBigBang, runEvolve, lockIdea, reviveNode } = useEvolution(sessionId);
   const { isConfigured, isLoaded } = useLLMConfig();
+  const nodeTypes = useMemo(() => REACT_FLOW_NODE_TYPES, []);
+  const edgeTypes = useMemo(() => REACT_FLOW_EDGE_TYPES, []);
 
   useEffect(() => {
     if (!isLoaded) return;
+    if (loadedSessionRef.current === sessionId) return;
+    loadedSessionRef.current = sessionId;
 
     let cancelled = false;
     reset();
@@ -75,8 +79,8 @@ export function GalaxyCanvas({ sessionId }: Props) {
     setPendingAction(null);
     setErrorMessage(null);
     setActivity({
-      title: '正在同步当前会话',
-      detail: '先读取已有会话信息和节点。',
+      title: '正在同步会话',
+      detail: '读取会话信息和已有节点。',
       tone: 'accent',
     });
 
@@ -95,18 +99,32 @@ export function GalaxyCanvas({ sessionId }: Props) {
         if (sessionData.currentGeneration === 0 && nodes.length === 0) {
           if (!isConfigured) {
             setActivity({
-              title: '请先配置 API Key',
-              detail: '返回首页在「API 设置」面板中配置你的 API Key。',
+              title: '还没有配置 API Key',
+              detail: '返回首页在「API 设置」中配好你的 Key。',
               tone: 'warning',
             });
             setErrorMessage('请先配置 API Key。');
             return;
           }
-          await runBigBang();
+          if (bootstrappingSessions.has(sessionId)) {
+            setActivity({
+              title: '首轮演化正在进行',
+              detail: '模型已经开始生成第一批方向，请稍候。',
+              tone: 'accent',
+            });
+            return;
+          }
+
+          bootstrappingSessions.add(sessionId);
+          try {
+            await runBigBang();
+          } finally {
+            bootstrappingSessions.delete(sessionId);
+          }
         } else {
           setActivity({
             title: '会话已同步',
-            detail: `已恢复 ${nodes.length} 个节点，可以继续筛选、扩写或锁定方向。`,
+            detail: `已恢复 ${nodes.length} 个节点，继续筛选、扩写或锁定。`,
             tone: 'success',
           });
         }
@@ -148,7 +166,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
         type: 'ideaNode',
         position: pos,
         data: { ...n },
-        selected: n.status === 'selected',
+        selected: false,
       };
     });
 
@@ -204,28 +222,36 @@ export function GalaxyCanvas({ sessionId }: Props) {
   );
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
-    async (_, node) => {
+    (_, node) => {
       const idea = ideaNodes.get(node.id);
-      if (idea?.status === 'dormant') {
-        await reviveNode(node.id);
-      }
+      if (idea?.status !== 'dormant') return;
+
+      void reviveNode(node.id).catch(() => {
+        // Error state is already written into the store by useEvolution.
+      });
     },
     [ideaNodes, reviveNode],
   );
 
-  const handleEvolve = useCallback(async () => {
+  const handleEvolve = useCallback(() => {
     if (selectedNodeIds.length === 0) return;
-    await runEvolve(selectedNodeIds, false);
+    void runEvolve(selectedNodeIds, false).catch(() => {
+      // Error state is already written into the store by useEvolution.
+    });
   }, [selectedNodeIds, runEvolve]);
 
-  const handleHybridize = useCallback(async () => {
+  const handleHybridize = useCallback(() => {
     if (selectedNodeIds.length !== 2) return;
-    await runEvolve(selectedNodeIds, true);
+    void runEvolve(selectedNodeIds, true).catch(() => {
+      // Error state is already written into the store by useEvolution.
+    });
   }, [selectedNodeIds, runEvolve]);
 
-  const handleLock = useCallback(async () => {
+  const handleLock = useCallback(() => {
     if (selectedNodeIds.length !== 1) return;
-    await lockIdea(selectedNodeIds[0]);
+    void lockIdea(selectedNodeIds[0]).catch(() => {
+      // Error state is already written into the store by useEvolution.
+    });
   }, [selectedNodeIds, lockIdea]);
 
   const focusedIdea = focusedNodeId ? ideaNodes.get(focusedNodeId) ?? null : null;
@@ -236,7 +262,7 @@ export function GalaxyCanvas({ sessionId }: Props) {
   ];
 
   return (
-    <div className="cosmic-grain relative h-screen w-screen overflow-hidden" style={{ background: 'var(--bg-deep)' }}>
+    <div className="galaxy-canvas cosmic-grain relative h-screen w-screen overflow-hidden" style={{ background: 'var(--bg-deep)' }}>
       <NebulaBackdrop />
 
       <ReactFlow
@@ -277,20 +303,46 @@ export function GalaxyCanvas({ sessionId }: Props) {
         }}
       />
 
-      <div className="absolute right-4 top-4 z-20 flex items-center gap-3">
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
         {topMetrics.map(([label, value]) => (
           <div
             key={label}
-            className="glass-panel rounded-2xl px-4 py-3"
+            className="rounded-[16px] px-4 py-2.5"
+            style={{
+              background: 'rgba(3,5,14,0.84)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.40), inset 0 1px 0 rgba(180,200,255,0.07)',
+              backdropFilter: 'blur(20px)',
+            }}
           >
-            <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[9px] uppercase tracking-[0.22em] hud-text" style={{ color: 'var(--text-muted)' }}>
               {label}
             </p>
-            <p className="mt-1 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <p className="mt-0.5 text-sm font-semibold hud-text" style={{ color: 'var(--text-primary)' }}>
               {value}
             </p>
           </div>
         ))}
+      </div>
+
+      <div className="absolute left-4 top-4 z-20">
+        <button
+          type="button"
+          onClick={() => router.push('/')}
+          className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] hud-text transition-all duration-300"
+          style={{
+            background: 'rgba(3,5,14,0.84)',
+            color: 'var(--text-secondary)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.40), inset 0 1px 0 rgba(180,200,255,0.07)',
+            backdropFilter: 'blur(20px)',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-primary)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-secondary)'; }}
+        >
+          <span style={{ color: 'var(--color-teal)' }}>←</span>
+          返回主页
+        </button>
       </div>
 
       <CanvasSidebar

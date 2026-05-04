@@ -16,28 +16,28 @@ interface Props {
 function getHelperCopy(selectedCount: number): { title: string; detail: string } {
   if (selectedCount === 0) {
     return {
-      title: '先保留一个最想继续看的方向',
-      detail: '点选 1 个节点就够了。双击灰色节点可以把淘汰分支重新拉回来。',
+      title: '先选一个最想继续的方向',
+      detail: '选 1 个节点就够了。双击灰色节点可以恢复淘汰分支。',
     };
   }
 
   if (selectedCount === 1) {
     return {
-      title: '这个方向已经可以继续推进了',
-      detail: '如果它已经够清晰，就锁定成 Brief；如果还想多看几个变体，就先扩写。',
+      title: '这个方向可以继续推进了',
+      detail: '够清晰就锁定成 Brief，还想多看看就扩写。',
     };
   }
 
   if (selectedCount === 2) {
     return {
-      title: '现在最适合做交叉融合',
-      detail: '两个方向各有亮点时，把它们混在一起，往往能得到更有新意的切口。',
+      title: '现在适合做交叉融合',
+      detail: '两个方向各有亮点时，混在一起往往能碰撞出新切口。',
     };
   }
 
   return {
-    title: '先把候选收窄到 1-2 个',
-    detail: '选太多时，系统给出的下一步会变得不够聚焦。',
+    title: '先把选择收窄到 1-2 个',
+    detail: '选太多时，下一步会不够聚焦。',
   };
 }
 
@@ -60,23 +60,23 @@ export function ControlBar({ selectedCount, pendingAction, onEvolve, onHybridize
 
   return (
     <div
-      className="absolute bottom-5 left-1/2 z-20 w-[min(920px,calc(100vw-1.5rem))] -translate-x-1/2 rounded-[28px] px-5 py-4"
+      className="absolute bottom-5 left-1/2 z-20 w-[min(940px,calc(100vw-1.5rem))] -translate-x-1/2 rounded-[26px] px-5 py-4"
       style={{
-        background: 'rgba(6,10,20,0.88)',
+        background: 'rgba(2, 4, 12, 0.92)',
         border: '1px solid rgba(255,255,255,0.07)',
-        boxShadow: '0 20px 80px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.03) inset',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
+        boxShadow: '0 24px 90px rgba(0,0,0,0.56), inset 0 1px 0 rgba(180,200,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.02)',
+        backdropFilter: 'blur(28px)',
+        WebkitBackdropFilter: 'blur(28px)',
       }}
     >
       <div className="flex items-center justify-between gap-5">
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em]"
-              style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)' }}
+              className="rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] hud-text"
+              style={{ background: 'rgba(255,255,255,0.035)', color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.05)' }}
             >
-              已选 {selectedCount}
+              sel {String(selectedCount).padStart(2, '0')}
             </span>
 
             <AnimatePresence>

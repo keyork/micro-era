@@ -6,51 +6,31 @@ import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { ContentType } from '@/types/idea';
 import { useLLMConfig } from '@/hooks/useLLMConfig';
+import type { ExampleBubbleData } from '@/components/home/HomeExperience';
 
-const contentTypes: { value: ContentType; label: string }[] = [
-  { value: 'video', label: '视频' },
-  { value: 'article', label: '文章' },
-  { value: 'podcast', label: '播客' },
-  { value: 'newsletter', label: 'Newsletter' },
-];
-
-const seedExamples = [
-  {
-    title: 'AI 焦虑',
-    seedInput: '我想做一期关于 AI 焦虑的视频，但不想只讲工具和效率，更想讲人在被技术推动时的心理失衡。',
-    channelDescription: '科技变化下的真实心理体验',
-    contentType: 'video' as ContentType,
-  },
-  {
-    title: '消费降级',
-    seedInput: '我想聊聊年轻人消费降级，但不想做省钱攻略，而是想讲为什么大家开始重新定义体面和安全感。',
-    channelDescription: '生活方式背后的时代情绪',
-    contentType: 'article' as ContentType,
-  },
-  {
-    title: '内容创作者',
-    seedInput: '我想做一期关于内容创作者疲惫感的选题，重点不是抱怨平台，而是为什么越努力更新越容易失去表达欲。',
-    channelDescription: '创作心理与媒介环境观察',
-    contentType: 'podcast' as ContentType,
-  },
+const contentTypes: { value: ContentType; label: string; hint: string; icon: string }[] = [
+  { value: 'video', label: '视频', hint: '适合冲突感、镜头感和情绪推进', icon: '▶' },
+  { value: 'article', label: '文章', hint: '适合观点展开、逻辑递进和论证', icon: '¶' },
+  { value: 'podcast', label: '播客', hint: '适合聊天感、陪伴感和延展讨论', icon: '◉' },
+  { value: 'newsletter', label: 'Newsletter', hint: '适合稳定连载和持续更新主题', icon: '✉' },
 ];
 
 const submitStages = [
   {
-    title: '建立创作会话',
-    detail: '保存你的种子主题、内容类型与频道上下文。',
+    title: '创建会话',
+    detail: '保存种子主题、内容类型与频道方向。',
   },
   {
-    title: '准备实时画板',
-    detail: '下一页会自动连接演化引擎，并接收第一批方向节点。',
+    title: '准备画板',
+    detail: '连接演化引擎，接收第一批方向节点。',
   },
   {
-    title: '进入工作台',
-    detail: '把等待过程变成可见反馈，而不是空白跳转。',
+    title: '进入演化',
+    detail: '等待变成可见反馈，而不是空白跳转。',
   },
 ];
 
-export function SeedInput() {
+export function SeedInput({ selectedExample }: { selectedExample?: ExampleBubbleData | null }) {
   const router = useRouter();
   const [seedInput, setSeedInput] = useState('');
   const [contentType, setContentType] = useState<ContentType>('video');
@@ -62,10 +42,19 @@ export function SeedInput() {
 
   const canSubmit = seedInput.trim().length > 8;
   const currentTip = !seedInput.trim()
-    ? '先写一个你最近反复想到、但还没想清楚的主题。'
+    ? '写一个你最近反复想到、但还没想清楚的主题。'
     : seedInput.trim().length < 18
-      ? '再补一点情绪、矛盾或你的观察，这样后面的分支会更有意思。'
-      : '这个输入已经够用了，进入画板后系统会先帮你展开第一代方向。';
+      ? '再补一点情绪、矛盾或你的观察，分支会更有意思。'
+      : '这个输入已经够用了，进入画板后会先帮你展开第一代方向。';
+
+  useEffect(() => {
+    if (!selectedExample) return;
+
+    setSeedInput(selectedExample.seedInput);
+    setChannelDescription(selectedExample.channelDescription);
+    setContentType(selectedExample.contentType);
+    setError('');
+  }, [selectedExample]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -115,89 +104,60 @@ export function SeedInput() {
           Start With One Seed
         </p>
         <h2 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-          把模糊想法送进演化引擎
+          先说出你现在最想做的选题
         </h2>
         <p className="text-sm leading-6" style={{ color: 'var(--text-secondary)' }}>
-          这里输入的是起点，不是答案。越具体的场景、情绪或矛盾，后面的分支越有质量。
+          这里不是提交成品，而是帮你把起点说清楚。主题越具体，情绪和冲突越明确，后面的分支质量越高。
         </p>
       </div>
 
       <div
         className="mb-6 rounded-[24px] p-4"
         style={{
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.05)',
+          background: 'linear-gradient(180deg, rgba(83,198,175,0.08), rgba(255,255,255,0.02))',
+          boxShadow: '0 18px 60px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.012)',
         }}
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              不知道怎么开头？
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-lg">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--color-teal)' }}>
+              推荐写法
             </p>
-            <p className="text-xs leading-5" style={{ color: 'var(--text-secondary)' }}>
-              可以先点一个示例，再按你的想法改。
+            <p className="mt-2 text-sm leading-6" style={{ color: 'var(--text-primary)' }}>
+              这个句式效果最好:
             </p>
-          </div>
-          <span
-            className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]"
-            style={{ background: 'rgba(111,119,255,0.12)', color: 'var(--color-primary)' }}
-          >
-            Quick Start
-          </span>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-3">
-          {seedExamples.map((example) => (
-            <button
-              key={example.title}
-              type="button"
-              onClick={() => {
-                setSeedInput(example.seedInput);
-                setChannelDescription(example.channelDescription);
-                setContentType(example.contentType);
-              }}
-              className="cosmic-lift rounded-2xl px-4 py-3 text-left"
-              style={{
-                background: 'rgba(255,255,255,0.025)',
-                border: '1px solid rgba(255,255,255,0.05)',
-              }}
-            >
-              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                {example.title}
-              </p>
-              <p className="mt-1 text-xs leading-5" style={{ color: 'var(--text-secondary)' }}>
-                {example.seedInput.slice(0, 32)}...
-              </p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        {[
-          ['种子', '描述一个想做但还没定型的内容念头'],
-          ['形态', '决定它最终更像视频、文章还是播客'],
-          ['画板', '进入可视化工作台继续筛选与锁定'],
-        ].map(([title, description], index) => (
-          <div
-            key={title}
-            className="rounded-2xl px-4 py-3"
-            style={{
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.04)',
-            }}
-          >
-            <p className="mb-1 text-xs font-semibold tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
-              0{index + 1}
-            </p>
-            <p className="mb-1 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              {title}
-            </p>
-            <p className="text-xs leading-5" style={{ color: 'var(--text-secondary)' }}>
-              {description}
+            <p className="mt-2 text-sm leading-6" style={{ color: 'var(--text-secondary)' }}>
+              我想做一个关于「主题」的内容，但不想只讲「常规角度」，我更想抓住「情绪 / 矛盾 / 新观察」。
             </p>
           </div>
-        ))}
+
+          <div className="grid gap-2 sm:min-w-[220px]">
+            {[
+              ['种子', '写主题和矛盾'],
+              ['形态', '选更适合的表达方式'],
+              ['画板', '进入后只保留 1-2 个方向'],
+            ].map(([title, description], index) => (
+              <div
+                key={title}
+                className="rounded-2xl px-4 py-3"
+                style={{
+                  background: 'rgba(255,255,255,0.025)',
+                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.012)',
+                }}
+              >
+                <p className="mb-1 text-xs font-semibold tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
+                  0{index + 1}
+                </p>
+                <p className="mb-1 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {title}
+                </p>
+                <p className="text-xs leading-5" style={{ color: 'var(--text-secondary)' }}>
+                  {description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -213,7 +173,7 @@ export function SeedInput() {
             className="cosmic-input w-full rounded-[24px] px-4 py-4 text-base resize-none"
           />
           <p className="mt-2 text-xs leading-5" style={{ color: 'var(--text-muted)' }}>
-            写"主题 + 你想抓住的情绪 / 冲突 / 观察"，比只写一个宽泛关键词更有用。
+            写「主题 + 你想抓住的情绪 / 冲突 / 观察」，比只写一个宽泛关键词更有用。
           </p>
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-xs leading-5" style={{ color: 'var(--color-teal)' }}>
@@ -243,19 +203,54 @@ export function SeedInput() {
                   key={ct.value}
                   type="button"
                   onClick={() => setContentType(ct.value)}
-                  className="rounded-2xl px-4 py-3 text-sm transition-all duration-300"
+                  className="rounded-[20px] px-4 py-4 text-left transition-all duration-300"
                   style={{
-                    background: isActive ? 'rgba(111, 119, 255, 0.15)' : 'rgba(255,255,255,0.025)',
+                    background: isActive
+                      ? 'linear-gradient(180deg, rgba(111,119,255,0.26), rgba(83,198,175,0.12))'
+                      : 'rgba(255,255,255,0.02)',
                     color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    border: `1px solid ${isActive ? 'rgba(111, 119, 255, 0.4)' : 'rgba(255,255,255,0.05)'}`,
-                    boxShadow: isActive ? '0 0 16px rgba(111,119,255,0.12), 0 0 0 1px rgba(111,119,255,0.08) inset' : 'none',
+                    boxShadow: isActive
+                      ? '0 22px 56px rgba(111,119,255,0.2), 0 0 36px rgba(83,198,175,0.08), inset 0 0 0 1px rgba(255,255,255,0.03)'
+                      : '0 8px 28px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.012)',
+                    transform: isActive ? 'translateY(-4px) scale(1.015)' : 'scale(0.965)',
+                    opacity: isActive ? 1 : 0.55,
+                    filter: isActive ? 'saturate(1.05)' : 'saturate(0.72)',
                   }}
                 >
-                  {ct.label}
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold"
+                      style={{
+                        background: isActive ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.05)',
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                        boxShadow: isActive ? '0 0 18px rgba(111,119,255,0.22)' : 'none',
+                      }}
+                    >
+                      {ct.icon}
+                    </div>
+                    <span
+                      className="rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-[0.14em]"
+                      style={{
+                        background: isActive ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)',
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {isActive ? '已选' : '未选'}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-sm font-semibold" style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    {ct.label}
+                  </p>
+                  <p className="mt-1 text-xs leading-5" style={{ color: isActive ? 'rgba(237,242,255,0.82)' : 'var(--text-muted)' }}>
+                    {ct.hint}
+                  </p>
                 </button>
               );
             })}
           </div>
+          <p className="mt-3 text-xs leading-5" style={{ color: 'var(--text-muted)' }}>
+            选中项会直接影响后续分支的表达方式和节奏。
+          </p>
         </div>
 
         <div>
@@ -272,18 +267,31 @@ export function SeedInput() {
         </div>
 
         {error && (
-          <p className="rounded-2xl px-4 py-3 text-sm" style={{ color: 'var(--color-pink)', background: 'rgba(240,108,140,0.06)', border: '1px solid rgba(240,108,140,0.15)' }}>
+          <p
+            className="rounded-2xl px-4 py-3 text-sm"
+            style={{
+              color: 'var(--color-pink)',
+              background: 'rgba(240,108,140,0.06)',
+              boxShadow: 'inset 0 0 0 1px rgba(240,108,140,0.03)',
+            }}
+          >
             {error}
           </p>
         )}
 
         {!isConfigured && (
-          <div className="rounded-[24px] p-4" style={{ background: 'rgba(241,198,109,0.06)', border: '1px solid rgba(241,198,109,0.14)' }}>
+          <div
+            className="rounded-[24px] p-4"
+            style={{
+              background: 'rgba(241,198,109,0.06)',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.14), inset 0 0 0 1px rgba(241,198,109,0.025)',
+            }}
+          >
             <p className="text-sm font-medium" style={{ color: 'var(--color-gold)' }}>
-              请先配置 API Key
+              还没有配置 API Key
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-              进入演化工作台需要调用 LLM，请在页面底部设置你的 API Key。
+              演化画板需要调用 LLM，请在独立的 API 配置页或右上角设置里填写并测试。
             </p>
           </div>
         )}
@@ -293,23 +301,25 @@ export function SeedInput() {
             className="space-y-3 rounded-[24px] p-4"
             style={{
               background: 'linear-gradient(180deg, rgba(111,125,247,0.10), rgba(255,255,255,0.02))',
-              border: '1px solid rgba(111,125,247,0.16)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.018)',
             }}
           >
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  正在准备你的工作台
+                  正在准备画板
                 </p>
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  创建会话后会自动进入实时演化画板。
+                  创建会话后自动进入演化画板。
                 </p>
               </div>
               <div
                 className="h-10 w-10 rounded-full"
                 style={{
-                  border: '2px solid rgba(111,119,247,0.14)',
-                  borderTopColor: 'var(--color-primary)',
+                  background:
+                    'conic-gradient(from 180deg, rgba(111,119,247,0.08), var(--color-primary), rgba(83,198,175,0.46), rgba(111,119,247,0.08))',
+                  WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px))',
+                  mask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px))',
                   animation: 'studio-spin 0.9s linear infinite',
                 }}
               />
@@ -326,7 +336,7 @@ export function SeedInput() {
                     className="flex items-start gap-3 rounded-2xl px-3 py-3 transition-all duration-300"
                     style={{
                       background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
-                      border: `1px solid ${isActive ? 'rgba(255,255,255,0.06)' : 'transparent'}`,
+                      boxShadow: isActive ? 'inset 0 0 0 1px rgba(255,255,255,0.018)' : 'none',
                     }}
                   >
                     <div
@@ -366,18 +376,24 @@ export function SeedInput() {
             boxShadow: '0 18px 60px rgba(83,198,175,0.18), 0 0 40px rgba(111,119,255,0.12)',
           }}
         >
-          {isLoading ? '正在创建工作台...' : '进入演化工作台'}
+          {isLoading ? '正在创建...' : '开始演化'}
         </motion.button>
 
         {!isLoading && (
-          <div className="rounded-[24px] p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div
+            className="rounded-[24px] p-4"
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              boxShadow: '0 18px 50px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.012)',
+            }}
+          >
             <p className="mb-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              进入后你会看到什么
+              进入画板后
             </p>
             <div className="space-y-2 text-xs leading-5" style={{ color: 'var(--text-secondary)' }}>
-              <p>1. 系统先展开第一批候选方向，不需要你盯着空白页等。</p>
-              <p>2. 你只要保留 1-2 个最有感觉的节点，继续扩写或融合。</p>
-              <p>3. 当某个方向足够清晰时，再锁定成最终 Brief。</p>
+              <p>1. 第一批候选方向自动展开，不用盯着空白页等。</p>
+              <p>2. 保留 1-2 个最有感觉的节点，继续扩写或融合。</p>
+              <p>3. 某个方向足够清晰时，锁定成最终 Brief。</p>
             </div>
           </div>
         )}

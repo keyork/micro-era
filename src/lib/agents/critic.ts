@@ -1,4 +1,4 @@
-import { callLLM, type LLMConfig } from '../llm/client';
+import { LLMFormatError, callLLM, type LLMConfig } from '../llm/client';
 import type { IdeaNode } from '@/types/idea';
 
 const CRITIC_SYSTEM_PROMPT = `你是微纪元的内容策略评估专家。你的任务是评估每个 idea 变异体的质量。
@@ -56,6 +56,28 @@ interface CriticScore {
   feasibility: number;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.min(100, Math.round(value)));
+  }
+  return fallback;
+}
+
+function buildFallbackScores(nodes: IdeaNode[]): IdeaNode[] {
+  return nodes.map((node, index) => ({
+    ...node,
+    scores: {
+      freshness: Math.max(40, 78 - index * 5),
+      resonance: Math.max(45, 74 - index * 3),
+      feasibility: Math.max(50, 80 - index * 4),
+    },
+  }));
+}
+
 export class CriticAgent {
   constructor(private config: LLMConfig) {}
 
@@ -77,28 +99,54 @@ export class CriticAgent {
       )
       .replace('{ideas_json}', JSON.stringify(ideasPayload));
 
-    const scoresList = (await callLLM(
-      this.config,
-      CRITIC_SYSTEM_PROMPT,
-      user,
-    )) as CriticScore[];
+    let raw: unknown;
+    try {
+      raw = await callLLM(
+        this.config,
+        CRITIC_SYSTEM_PROMPT,
+        user,
+      );
+    } catch (error) {
+      if (error instanceof LLMFormatError) {
+        return buildFallbackScores(nodes);
+      }
+      throw error;
+    }
+
+    const scoresList = Array.isArray(raw)
+      ? raw
+          .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+          .map((entry) => ({
+            ideaTitle: typeof entry.ideaTitle === 'string' ? entry.ideaTitle : '',
+            freshness: toNumber(entry.freshness, 65),
+            resonance: toNumber(entry.resonance, 68),
+            feasibility: toNumber(entry.feasibility, 72),
+          }))
+      : [];
 
     const scoreMap = new Map<string, CriticScore>();
     for (const s of scoresList) {
-      scoreMap.set(s.ideaTitle, s);
+      if (s.ideaTitle) {
+        scoreMap.set(s.ideaTitle, s);
+      }
     }
 
-    for (const node of nodes) {
+    return nodes.map((node, index) => {
       const s = scoreMap.get(node.title);
-      node.scores = s
-        ? {
-            freshness: s.freshness,
-            resonance: s.resonance,
-            feasibility: s.feasibility,
-          }
-        : undefined;
-    }
-
-    return nodes;
+      return {
+        ...node,
+        scores: s
+          ? {
+              freshness: s.freshness,
+              resonance: s.resonance,
+              feasibility: s.feasibility,
+            }
+          : {
+              freshness: Math.max(40, 72 - index * 4),
+              resonance: Math.max(45, 70 - index * 3),
+              feasibility: Math.max(50, 76 - index * 2),
+            },
+      };
+    });
   }
 }
